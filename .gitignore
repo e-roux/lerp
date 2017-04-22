@@ -7,11 +7,12 @@
 *~
 .idea/
 build/
-LICENSE.txt
+dist/
+lerp.egg-info
 MANIFEST.in
 MOVE
 data
 docs/_build/
 sample/
 src/util.py
-tests
+tests/
