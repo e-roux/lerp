@@ -4,6 +4,8 @@ This module delivers utilities to manipulate data meshes
 
 """
 
+__version__ = "0.1aN"
+
 import sys
 
 # Attention, utilisation d'ascii pour les chaînes de caractères
@@ -64,16 +66,17 @@ class mesh1d(np.ndarray):
     """
     Defines a basis class for array/unit/label based objects
 
+
     Parameters
     ----------
-    data : array (python or numpy type)
-        Data in form of a  python array or numpy.array
+    data : array
+           Data in form of a python array or numpy.array
 
-    label : string or unicode
-        label for plotting utility
+    label : string, optional
+            label for plotting utility
 
-    unit : string or unicode
-        unit for plotting utility
+    unit : string, optional
+           unit for plotting utility
 
     Examples
     ---------
@@ -84,8 +87,8 @@ class mesh1d(np.ndarray):
 
         In [2]: x = mesh1d(data=[100, 600, -200, 300], label="Current", unit="A")
 
-        In [3]: print("Max : {} mA".format(x.max()))
-        Max : 600 mA
+        In [3]: print("Max : {0} {1.unit}".format(x.max(), x))
+        Max : 600 A
 
         In [4]: print("Before sorting\\n", x)
         Before sorting
@@ -112,7 +115,8 @@ class mesh1d(np.ndarray):
         Out[10]: 1200
 
         In [11]: x[1:3]
-        Out[11]: mesh1d(data=[1000,1200], label=Current, unit=A)
+        Out[11]: mesh1d(data=[1000,1200], label="Current", unit="A")
+
 
     """
     def __new__(cls, data=None, label=None, unit=None):
@@ -246,6 +250,14 @@ class mesh1d(np.ndarray):
         return newArray
 
     def mean(self, *args, **kwargs):
+        """
+        mean
+        ^^^^^^^^
+        
+        Returns
+        -------
+        Object mean
+        """
         return np.mean(np.asarray(self), *args, **kwargs)
 
     def median(self, *args, **kwargs):
@@ -254,7 +266,6 @@ class mesh1d(np.ndarray):
     @myPlot
     def plot(self, *args, **kwargs):
         return
-        #_plot(y=self)
 
     def pop(self, axis=0):
         """Pop an element of the array.
@@ -277,20 +288,20 @@ class mesh1d(np.ndarray):
     def push(self, obj, unique=True, return_index=False):
         """Pushes an element to an array.
 
-        Notes
-        -----
-        The elements are not added inplace
-
         Parameters
         ----------
         obj: single numeric, array, numpy.array
         sort: boolean
-            True (dfault) if you want the mesh1d to be ascending sorted.
+              True (dfault) if you want the mesh1d to be ascending sorted.
 
         Returns
         -------
-        object of the same class
+        New object of the same class with new element
 
+        Notes
+        -----
+        As instance of numpy array, the elements are not added inplace
+        
         """
         # Test if self is not empty array
         try:

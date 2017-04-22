@@ -24,6 +24,7 @@ import guzzle_sphinx_theme
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.inheritance_diagram',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
     'nbsphinx',
@@ -158,3 +159,4 @@ texinfo_documents = [
 def setup(app):
     app.add_stylesheet('https://fonts.googleapis.com/css?family=Open+Sans:600,400,300,200|Inconsolata|Ubuntu+Mono:400,700')
     app.add_stylesheet('css/jupyter-notebook-custom.css')
+    app.add_stylesheet('css/api.css')

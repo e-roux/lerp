@@ -6,13 +6,12 @@
 */__pycache__/
 *~
 .idea/
+build/
 LICENSE.txt
 MANIFEST.in
 MOVE
 data
 docs/_build/
-sample
-setup.cfg
-setup.py
+sample/
 src/util.py
 tests

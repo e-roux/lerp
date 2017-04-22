@@ -1,15 +1,17 @@
-.. api
+.. api_mesh
+
+.. module:: lerp
 
 API
 ========
-
-.. module:: lerp
 
 
 mesh1d
 --------
 
 .. autoclass:: mesh1d
+   :members:
+   :undoc-members:
 
 
 mesh2d
@@ -24,9 +26,38 @@ mesh3d
 --------
 
 .. autoclass:: mesh3d
+   :members:
+   :undoc-members:
 
 
 mesh4d
 --------
 
 .. autoclass:: mesh4d
+   :members:
+   :undoc-members:
+
+
+mesh5d
+--------
+
+.. autoclass:: mesh5d
+   :members:
+   :undoc-members:
+
+
+polymesh2d
+------------
+
+.. autoclass:: polymesh2d
+   :members:
+   :undoc-members:
+
+
+polymesh3d
+-----------
+
+.. autoclass:: polymesh3d
+   :members:
+   :undoc-members:
+

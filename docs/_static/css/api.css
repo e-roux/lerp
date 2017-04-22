@@ -1,0 +1,10 @@
+table.docutils th.field-name {
+    background-color: aliceblue;
+    border: 0px;
+}
+
+
+table.docutils col.field-name {
+    width: 20%;
+    max-width: 20%;
+}
