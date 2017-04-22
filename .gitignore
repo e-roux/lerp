@@ -5,6 +5,7 @@
 *.pyo
 */__pycache__/
 *~
+.pypirc*
 .idea/
 build/
 dist/
