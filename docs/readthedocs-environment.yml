@@ -8,3 +8,4 @@ dependencies:
   - ipykernel
   - pip:
     - guzzle_sphinx_theme
+    - nbsphinx
