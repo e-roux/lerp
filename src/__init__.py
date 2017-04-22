@@ -158,7 +158,8 @@ class mesh1d(np.ndarray):
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
         code = ET.SubElement(pre, 'code')
-        code.text = self.__class__.__name__ + ": "
+        code.text = self.__class__.__name__
+        span = ET.SubElement(pre, 'span').text = ": "
         b = ET.SubElement(pre, 'b')
         b.text = self.label if self.label is not None else "Label"
         span = ET.SubElement(pre, 'span')
@@ -176,7 +177,8 @@ class mesh1d(np.ndarray):
                 if _i == 0:
                     tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
                     for _node in islice(np.arange(len(self)), 15):
-                        ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(_node)
+                        ET.SubElement(tr, 'th',
+                                      {'style': _html_style['th']}).text = str(_node)
                     if len(self) > 16:
                         ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = "..."
                         ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self) - 1)
