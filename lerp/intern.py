@@ -77,10 +77,8 @@ def myPlot(func):
         rc = kwargs.pop('rc') if 'rc' in kwargs else False
         
         if rc is False:
-            #plt.clf()
-            plt.style.use('default')
-            if 'ggplot' in plt.style.available:
-                plt.style.use('ggplot')
+            plt.style.use('ggplot' if 'ggplot' in plt.style.available
+                          else 'default')
 
         if rc is True and 'graphpaper' in plt.style.available:
             plt.style.use('graphpaper')
@@ -142,6 +140,8 @@ def myPlot(func):
             dY = np.ceil(float(np.abs(uY / 8)))
         else:
             dY = float(dY)
+            
+        
 
         # TODO : corriger
         # _myGrid(dX, dY)
@@ -160,16 +160,17 @@ def myPlot(func):
 
         if ylim is not None:
             plt.ylim(ylim)
-        else:
-            _y0 = np.sign(_ylim[0]) * dY * \
-            np.ceil(np.abs(np.float(_ylim[0]))/dY) \
-            if np.float(_ylim[0]) % dY != 0 else _ylim[0]
-            
-            _y1 = np.sign(_ylim[1]) * dY * \
-            np.ceil(np.abs(np.float(_ylim[1]))/dY) \
-            if np.float(_ylim[1]) % dY != 0 else _ylim[1]
-            
-            plt.ylim(_y0, _y1)
+#         else:
+#             _y0 = np.sign(_ylim[0]) * dY * \
+#             np.ceil(np.abs(np.float(_ylim[0]))/dY) \
+#             if np.float(_ylim[0]) % dY != 0 else _ylim[0]
+#             
+#             _y1 = np.sign(_ylim[1]) * dY * \
+#             np.ceil(np.abs(np.float(_ylim[1]))/dY) \
+#             if np.float(_ylim[1]) % dY != 0 else _ylim[1]
+#             
+#             print(_y0, _y1)
+#             plt.ylim(_y0, _y1)
 
         if bokeh is True:
             from bokeh import mpl
