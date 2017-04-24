@@ -9,7 +9,8 @@ __version__ = "0.1aN"
 import sys
 
 # Attention, utilisation d'ascii pour les chaînes de caractères
-__all__ = ["mesh1d", "mesh2d", "mesh3d", "mesh4d", "polymesh2d", "polymesh3d"]
+__all__ = ["mesh1d", "mesh2d", "mesh3d", "mesh4d", "mesh5d",
+           "polymesh2d", "polymesh3d"]
 
 from copy import deepcopy
 from collections import Iterable, namedtuple
@@ -38,8 +39,19 @@ axeConv = { _i : _j for (_i, _j) in enumerate('xyzvw')}
 
 _html_style = {
     'th' : 'color: LightGrey;border:0px none;text-align:center;background:none;',
+    'none' : 'border:0px none;background:none;',
+            
 }
 
+
+class mesh(object):
+    def __dir__(self):
+        #print([repr(getattr(self, f)) for f in dir(self.__class__)])
+        # Remove deprecated methods from dir()
+        return sorted([f for f in dir(self.__class__)\
+                       if not (f.startswith('_') |\
+                          ('deprecated' in repr(getattr(self, f))))],
+                      key=lambda x : x.lower())
 
 def add(*objs):
 
@@ -266,6 +278,7 @@ class mesh1d(np.ndarray):
     @myPlot
     def plot(self, *args, **kwargs):
         return
+        #_plot(y=self)
 
     def pop(self, axis=0):
         """Pop an element of the array.
@@ -288,11 +301,15 @@ class mesh1d(np.ndarray):
     def push(self, obj, unique=True, return_index=False):
         """Pushes an element to an array.
 
+        Notes
+        -----
+        The elements are not added inplace
+
         Parameters
         ----------
         obj: single numeric, array, numpy.array
         sort: boolean
-              True (dfault) if you want the mesh1d to be ascending sorted.
+              True (default) if you want the mesh1d to be ascending sorted.
 
         Returns
         -------
@@ -327,7 +344,7 @@ class mesh1d(np.ndarray):
 ############################################################################
 # CLASSE mesh2d
 ############################################################################
-class mesh2d(object):
+class mesh2d(mesh):
 
     """
     Fundamental 2D object, strict monotonic
@@ -352,8 +369,6 @@ class mesh2d(object):
         * common operations:  +, -, , /
         * standard functions:func:`len()`, :func:`print()`
     """
-
-
 
     def __init__(self, x=None, y=None,
                  x_label=None, x_unit=None,
@@ -437,16 +452,12 @@ class mesh2d(object):
                            
     def __neg__(self):
         return self.__class__(x=self.x, y=-self.y)
-                           
-    def __dir__(self):
-        return ['interpolate', 'extrapolate', 'max', 'min',
-                'plot', 'push', 'step']
-
+                         
     def __getitem__(self, i=None):
         if isinstance(i, Number):
             return (self.x[i], self.y[i])
         else:
-            return self.__class__(self.x[i], self.y[i])
+            return self.__class__(x=self.x[i], y=self.y[i])
 
     def __iter__(self):
         return zip(self.x, self.y)
@@ -485,8 +496,10 @@ class mesh2d(object):
         tbody = ET.SubElement(table, 'tbody')
         for _i, _v in enumerate('nxy'):
             if _i == 0:
-                tr = ET.SubElement(tbody, 'tr', {'style':'border: 0px solid'})
-                ET.SubElement(tr, 'th', {'style':'border:0px none;background:none;'})
+                tr = ET.SubElement(tbody, 'tr', {'style':'border:0px none;\
+                border-bottom:1px solid #C0C0C0;background:none;'})
+                ET.SubElement(tr, 'th', {'style':'border:0px none;\
+                background:none;'})
                 for _node in islice(np.arange(len(self)), 15):
                     ET.SubElement(tr, 'th', {'style':_html_style['th']}).text = str(_node)
                 if len(self) > 16:
@@ -932,7 +945,7 @@ class mesh2d(object):
 ############################################################################
 # CLASSE mesh3d
 ############################################################################
-class mesh3d(dict):
+class mesh3d(mesh):
     """
     Interpolate over a 2-D grid.
 
@@ -997,7 +1010,33 @@ class mesh3d(dict):
     
     def __sub__(self, obj):
         return self.__add__(-obj)
-        
+
+    def __mul__(self, obj):
+        """
+        """
+        newArgs = deepcopy(self.__dict__)
+        if isinstance(obj, Number):
+            # Casting rule from numpy
+            newArgs['d'] = np.multiply(self.d, obj)
+            return self.__class__(**newArgs)
+        else:
+            logger.warning("Multiplying {} to {} failed".format(
+                           obj.__class__.__name__,
+                           self.__class__.__name__))        
+
+    def __truediv__(self, obj):
+        """
+        """
+        newArgs = deepcopy(self.__dict__)
+        if isinstance(obj, Number):
+            # Casting rule from numpy
+            newArgs['d'] = np.divide(self.d, obj)
+            return self.__class__(**newArgs)
+        else:
+            logger.warning("Multiplyng {} to {} failed".format(
+                           obj.__class__.__name__,
+                           self.__class__.__name__))                           
+                           
     def __call__(self, x=None, y=None, *args, **kwargs):
         """Interpolate the function.
 
@@ -1045,7 +1084,7 @@ class mesh3d(dict):
                  y_label=None, y_unit=None,
                  label=None, unit=None,
                  extrapolate=True, clipboard=False,
-                 *pargs, **kwargs):
+                 sort=True, *pargs, **kwargs):
         """
         x -> row (index 0 of W)
         Y -> column (index 1 of W)
@@ -1084,7 +1123,7 @@ class mesh3d(dict):
         if clipboard is True:
             self.read_clipboard()
 
-        self.reshape()
+        self.reshape(sort=sort)
 
     @property
     def x(self):
@@ -1126,23 +1165,23 @@ class mesh3d(dict):
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
-        table = ET.SubElement(res, 'table', {'style': 'border: 0px none;'})
+        table = ET.SubElement(res, 'table', {'style': _html_style['none'], 'class' : 'mesh3d'})
         tbody = ET.SubElement(table, 'tbody')
+        
         for _a in np.arange(3):
             if _a == 0:
-                tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
-                ET.SubElement(tr, 'th', {'colspan' : '3', 'style': 'border:0px none;background:none;'})
+                tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
+                ET.SubElement(tr, 'th', {'colspan' : '3', 'style': _html_style['none']})
                 td = ET.SubElement(tr, 'th', {'colspan' : str(len(self._y)),
-                                              'style': 'border:0px none;background:none;'})
+                                              'style': _html_style['none']})
                 ET.SubElement(td, 'b').text = self._y.label or "Label"
                 ET.SubElement(td, 'span').text = " [{}]".format(
                    self._y.unit or "Unit")
-
             elif _a == 1:
 #                ET.SubElement(tr, 'th').text = str(self._x[_i])
 
-                tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
-                ET.SubElement(tr, 'th', {'colspan': '3', 'style': 'border:0px none;background:none;'})
+                tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
+                ET.SubElement(tr, 'th', {'colspan': '3', 'style': _html_style['none']})
                 for _node in islice(np.arange(len(self._y)), 15):
                     ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(_node)
                 if len(self._y) > 16:
@@ -1151,8 +1190,8 @@ class mesh3d(dict):
                 elif len(self._y) > 15:
                     ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self._y) - 1)
 
-                tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
-                ET.SubElement(tr, 'th', {'colspan': '3', 'style': 'border:0px none;background:none;'})
+                tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
+                ET.SubElement(tr, 'th', {'colspan': '3', 'style': _html_style['none']})
                 for _node in islice(self._y, 15):
                     ET.SubElement(tr, 'th').text = str(_node)
                 if len(self._y) > 16:
@@ -1166,10 +1205,10 @@ class mesh3d(dict):
                 for _i, _v in enumerate(self._x):
                     tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
                     if _i == 0:
-                        td = ET.SubElement(tr, 'th', {'rowspan': str(len(self._x)),
-                                                      'style': 'border:0px none;background:none;'})
-                        ET.SubElement(td, 'b').text = self._x.label or "Label"
-                        ET.SubElement(td, 'span').text = " [{}]".format(
+                        td = ET.SubElement(tr, 'th', {'rowspan': str(len(self._x)), 
+                                                      'style': _html_style['none']})
+                        ET.SubElement(td, 'b', {'style' : _html_style['none']}).text = self._x.label or "Label"
+                        ET.SubElement(td, 'span', {'style' : _html_style['none']}).text = " [{}]".format(
                             self._x.unit or "Unit")
 
                     ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(_i)
@@ -1199,9 +1238,9 @@ class mesh3d(dict):
         try:
             if len(sl) == 2:
                 slx, sly = sl
-                if isinstance(slx, slice):
+                if isinstance(slx, slice) or isinstance(slx, list) or isinstance(slx, np.ndarray):
                     isXslice = len(self.x[slx]) > 1 or False
-                if isinstance(sly, slice):
+                if isinstance(sly, slice) or isinstance(sly, list) or isinstance(sly, np.ndarray):
                     isYslice = len(self.y[sly]) > 1 or False
         except:
             slx, sly = sl, slice(None, None, None)
@@ -1287,27 +1326,39 @@ class mesh3d(dict):
                 iY = np.searchsorted(self.y, y) - 1
 
             Z1 = self.d[iX, iY] + (self.d[iX, iY + 1] - self.d[iX, iY]) * \
-                                  (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
-            Z2 = self.d[iX + 1, iY] + (self.d[iX + 1, iY + 1] - self.d[iX + 1, iY]) * \
-                                      (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
+                                  (y - self.y[iY]) / (self.y[iY + 1]\
+                                                      - self.y[iY])
+            Z2 = self.d[iX + 1, iY] +\
+                (self.d[iX + 1, iY + 1] - self.d[iX + 1, iY]) *\
+                (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
 
-            return Z1 + (Z2 - Z1) * (x - self.x[iX]) / (self.x[iX + 1] - self.x[iX])
+            return Z1 + (Z2 - Z1) * (x - self.x[iX]) /\
+                (self.x[iX + 1] - self.x[iX])
         # x or y are numeric
         elif isxN | isyN:
             if isxN:
-                y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
-                return mesh2d(y, mesh1d([self(x, _y) for _y in y], self.label, self.unit))
+                y = self._y if y is None\
+                    else self._y.__class__(y, **self._y.__dict__)
+                return mesh2d(y, mesh1d([self.interpolate(x, _y) for _y in y],
+                              self.label, self.unit))
             else:
-                x = self._x if x is None else self._x.__class__(x, **self._x.__dict__)
-                return mesh2d(x, mesh1d([self(_x, y) for _x in x], self.label, self.unit))
+                x = self._x if x is None\
+                    else self._x.__class__(x, **self._x.__dict__)
+                return mesh2d(x, mesh1d([self.interpolate(_x, y) for _x in x],
+                              self.label, self.unit))
         # Either x nor y are numeric
         else:
-            x = self._x if x is None else self._x.__class__(x, **self._x.__dict__)
-            y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
-            _, tx, _, ty, c, _, _ = dfitpack.regrid_smth(self._x, self._y, np.ravel(self.d), kx=1, ky=1)
+            x = self._x if x is None else self._x.__class__(x,
+                                                            **self._x.__dict__)
+            y = self._y if y is None else self._y.__class__(y,
+                                                            **self._y.__dict__)
+            _, tx, _, ty, c, _, _ = dfitpack.regrid_smth(self._x, self._y,
+                                                         np.ravel(self.d),
+                                                         kx=1, ky=1)
 
             return self.__class__(x=x, y=y,
-                                  w=[fitpack.bisplev(_x, _y, (tx, ty, c, 1, 1)) for _x, _y in product(x, y)],
+                                  w=[fitpack.bisplev(_x, _y, (tx, ty, c, 1, 1))\
+                                    for _x, _y in product(x, y)],
                                   label=self.label, unit=self.unit)
 
     def extrapolate(self, x, y):
@@ -1315,7 +1366,7 @@ class mesh3d(dict):
         isxN = isinstance(x, Number)
         isyN = isinstance(y, Number)
 
-        # x and y are numeric
+        # x and y are numerics
         if isxN & isyN:
             if x <= self.x[0]:
                 iX = 0
@@ -1337,7 +1388,7 @@ class mesh3d(dict):
                 (y - self.y[iY]) / (self.y[iY+1] - self.y[iY])
 
             return Z1 + (Z2 - Z1) * (x - self.x[iX]) / (self.x[iX+1] - self.x[iX])
-        # x or y are numeric
+        # x or y is numeric
         elif isxN | isyN:
             # Save extrapolate status in options before setting to True
             extrapolate = self.options['extrapolate']
@@ -1354,7 +1405,7 @@ class mesh3d(dict):
                                        self.label, self.unit))
                 self.options['extrapolate'] = extrapolate
                 return res                                        
-        # Either x nor y are numeric
+        # Either x nor y is numeric
         else:
             x = self._x if x is None else self._x.__class__(x, **self._x.__dict__)
             y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
@@ -1439,10 +1490,11 @@ class mesh3d(dict):
             #raise FileNotFoundError("Please check your path, {} not found".\
             #format(fileName))
 
-    def reshape(self):
+    def reshape(self, sort=True):
         if len(self.x) > 0:
             self.d = np.reshape(self.d, (len(self.x),-1 ))
-        self.sort()
+        if sort is True:
+            self.sort()
 
     def sort(self):
         # Code from interp2d
@@ -1478,11 +1530,18 @@ class mesh3d(dict):
                               label=self.label, unit=self.unit, 
                               **self.options)
 
-
+    # Important : non sort!
+    def diff(self, axis=0, n=1):
+        return self.__class__(x=np.diff(self._x, n=n) if axis==0 else self._x,
+                              y=np.diff(self._y, n=n) if axis==1 else self._y,
+                              w=np.diff(self.d, axis=axis, n=n),
+                              label=self.label, unit=self.unit, 
+                              sort=False)
+    
 ############################################################################
 # CLASSE mesh4d
 ############################################################################
-class mesh4d(object):
+class mesh4d(mesh):
     """
     """
    
@@ -1835,7 +1894,7 @@ class mesh4d(object):
 ############################################################################
 # CLASSE mesh5d
 ############################################################################
-class mesh5d(object):
+class mesh5d(mesh):
     """
     """
    
