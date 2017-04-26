@@ -35,12 +35,9 @@ axis = namedtuple('axis', ['label', 'unit'])
 
 axeConv = { _i : _j for (_i, _j) in enumerate('xyzvw')}
 
-# global __DBNAME__  # add this line!
-
 _html_style = {
     'th' : 'color: LightGrey;border:0px none;text-align:center;background:none;',
     'none' : 'border:0px none;background:none;',
-            
 }
 
 
@@ -54,7 +51,6 @@ class mesh(object):
                       key=lambda x : x.lower())
 
 def add(*objs):
-
     print(*objs)
 
 def read_pickle(self, fileName=None):
@@ -397,6 +393,53 @@ class mesh2d(mesh):
 
     def __add__(self, obj):
         """
+        Adds obj to self along y-axis
+        
+        Parameters
+        ----------
+        obj : Number or mesh2d like
+              object to add to current object
+            
+            
+        Returns
+        ----------
+        mesh2d
+        
+        Notes
+        ------------
+        Pay attention to 'extrapolate' options as it impacts the adding behavior of both arrays.
+        
+        Exemple
+        ----------        
+        In [1]: A = mesh2d([1, 2, 3], [0.5, 6, 9.0])
+
+        In [2]: A
+        Out[2]: 
+        x = mesh1d(data=[1, 2, 3], label="None", unit="None")
+        y = mesh1d(data=[ 0.5,  6. ,  9. ], label="None", unit="None")
+        
+        In [3]: A + 10
+        Out[3]: 
+        x = mesh1d(data=[1, 2, 3], label="None", unit="None")
+        y = mesh1d(data=[ 10.5,  16. ,  19. ], label="None", unit="None")
+        
+        In [4]: B = mesh2d([0.4, 3, 6], [0.5, 6, 9.0])
+        
+        In [5]: A + B
+        Out[5]: 
+        x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
+        y = mesh1d(data=[ -2.3 ,   2.27,   9.88,  15.  ,  27.  ], label="None", unit="None")
+        
+        In [6]: A.options
+        Out[6]: {'extrapolate': True}
+        
+        In [7]: A.options['extrapolate'] = False
+        
+        In [8]: A + B
+        Out[8]: 
+        x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
+        y = mesh1d(data=[  1.  ,   2.27,   9.88,  15.  ,  18.  ], label="None", unit="None")
+
         """
         newArgs = deepcopy(self.__dict__)
         if isinstance(obj, Number):
@@ -417,6 +460,18 @@ class mesh2d(mesh):
 
     def __mul__(self, obj):
         """
+        Adds obj to self along y-axis
+        
+        Parameters
+        ----------
+        obj : Number or mesh2d like
+              object to multiply to current object
+            
+            
+        Returns
+        ----------
+        mesh2d        
+        
         """
         newArgs = deepcopy(self.__dict__)
         if isinstance(obj, Number):
