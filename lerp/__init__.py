@@ -52,6 +52,16 @@ class mesh(object):
     def __len__(self):
         return len(self.d)
 
+    def to_pickle(self, fileName=None):
+        try:
+            fileName = os.path.normpath(fileName)
+            with open(fileName, 'wb') as f:
+                pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        except:
+            raise FileNotFoundError("Please check your path, {} not found".\
+            format(fileName))
+
+
 def add(*objs):
     print(*objs)
 

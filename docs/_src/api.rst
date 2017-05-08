@@ -33,6 +33,7 @@ mesh2d
    mesh2d.steps
    mesh2d.to_clipboard
    mesh2d.to_csv
+   mesh2d.to_pickle
 
 
 mesh3d
@@ -53,7 +54,6 @@ mesh3d
    mesh3d.read_pickle
    mesh3d.reshape
    mesh3d.sort
-   mesh3d.to_gpt
    mesh3d.to_pickle
 
 
