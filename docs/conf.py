@@ -24,6 +24,7 @@ import guzzle_sphinx_theme
 
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.inheritance_diagram',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',

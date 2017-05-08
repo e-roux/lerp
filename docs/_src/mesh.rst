@@ -1,9 +1,9 @@
-.. api_mesh
+.. mesh
 
 .. module:: lerp
 
-API
-========
+MESH
+====
 
 
 mesh1d
@@ -44,20 +44,3 @@ mesh5d
 .. autoclass:: mesh5d
    :members:
    :undoc-members:
-
-
-polymesh2d
-------------
-
-.. autoclass:: polymesh2d
-   :members:
-   :undoc-members:
-
-
-polymesh3d
------------
-
-.. autoclass:: polymesh3d
-   :members:
-   :undoc-members:
-

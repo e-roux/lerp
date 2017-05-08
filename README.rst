@@ -6,6 +6,9 @@ lerp : Lookup Table
 ``lerp`` aims to supply lookup table facility in python on top of numpy.
 
 
+.. note::
+    This project is in early alpha phase.
+
 .. |docs| image:: https://readthedocs.org/projects/lerp/badge/?version=latest
     :alt: Documentation Status
     :scale: 100%

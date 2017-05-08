@@ -12,10 +12,12 @@ Content
 --------
 
 .. toctree::
-    :maxdepth: 2
+    :maxdepth: 1
     
     _src/lerp.ipynb
     _src/mesh
+    _src/polymesh
+    _src/api
 
 
 Indices and tables

@@ -49,6 +49,8 @@ class mesh(object):
                        if not (f.startswith('_') |\
                           ('deprecated' in repr(getattr(self, f))))],
                       key=lambda x : x.lower())
+    def __len__(self):
+        return len(self.d)
 
 def add(*objs):
     print(*objs)
@@ -1195,10 +1197,7 @@ class mesh3d(mesh):
     @y.setter
     def y(self, obj):
         self._y = self._y.__class__(obj, **self._y.__dict__)
-        
-    def __len__(self):
-        return len(self._x)*len(self._y)
-                           
+
     def __neg__(self):
         """
         """
