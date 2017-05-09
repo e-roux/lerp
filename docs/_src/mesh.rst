@@ -1,46 +1,46 @@
-.. mesh
+.. Mesh
 
 .. module:: lerp
 
-MESH
+Mesh
 ====
 
 
-mesh1d
---------
+Mesh1d
+------
 
-.. autoclass:: mesh1d
+.. autoclass:: Mesh1d
    :members:
    :undoc-members:
 
 
-mesh2d
---------
+Mesh2d
+------
 
-.. autoclass:: mesh2d
+.. autoclass:: Mesh2d
    :members:
    :undoc-members:
 
 
-mesh3d
---------
+Mesh3d
+------
 
-.. autoclass:: mesh3d
+.. autoclass:: Mesh3d
    :members:
    :undoc-members:
 
 
-mesh4d
---------
+Mesh4d
+------
 
-.. autoclass:: mesh4d
+.. autoclass:: Mesh4d
    :members:
    :undoc-members:
 
 
-mesh5d
---------
+Mesh5d
+------
 
-.. autoclass:: mesh5d
+.. autoclass:: Mesh5d
    :members:
    :undoc-members:

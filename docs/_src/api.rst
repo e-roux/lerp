@@ -6,90 +6,90 @@ API
 ===
 
 
-mesh2d
+Mesh2d
 ------
 
 .. autosummary::
    :toctree: generated/
 
-   mesh2d.apply
-   mesh2d.push
-   mesh2d.d
-   mesh2d.diff
-   mesh2d.dropnan
-   mesh2d.extrapolate
-   mesh2d.gradient
-   mesh2d.interpolate
-   mesh2d.max
-   mesh2d.mean
-   mesh2d.median
-   mesh2d.min
-   mesh2d.plot
-   mesh2d.polyfit
-   mesh2d.push
-   mesh2d.read_clipboard
-   mesh2d.resample
-   mesh2d.step
-   mesh2d.steps
-   mesh2d.to_clipboard
-   mesh2d.to_csv
-   mesh2d.to_pickle
+   Mesh2d.apply
+   Mesh2d.push
+   Mesh2d.d
+   Mesh2d.diff
+   Mesh2d.dropnan
+   Mesh2d.extrapolate
+   Mesh2d.gradient
+   Mesh2d.interpolate
+   Mesh2d.max
+   Mesh2d.mean
+   Mesh2d.median
+   Mesh2d.min
+   Mesh2d.plot
+   Mesh2d.polyfit
+   Mesh2d.push
+   Mesh2d.read_clipboard
+   Mesh2d.resample
+   Mesh2d.step
+   Mesh2d.steps
+   Mesh2d.to_clipboard
+   Mesh2d.to_csv
+   Mesh2d.to_pickle
 
 
-mesh3d
+Mesh3d
 ------
 
 .. autosummary::
    :toctree: generated/
 
-   mesh3d.apply
-   mesh3d.diff
-   mesh3d.extrapolate
-   mesh3d.from_pandas
-   mesh3d.interpolate
-   mesh3d.plot
-   mesh3d.pop
-   mesh3d.push
-   mesh3d.read_clipboard
-   mesh3d.read_pickle
-   mesh3d.reshape
-   mesh3d.sort
-   mesh3d.to_pickle
+   Mesh3d.apply
+   Mesh3d.diff
+   Mesh3d.extrapolate
+   Mesh3d.from_pandas
+   Mesh3d.interpolate
+   Mesh3d.plot
+   Mesh3d.pop
+   Mesh3d.push
+   Mesh3d.read_clipboard
+   Mesh3d.read_pickle
+   Mesh3d.reshape
+   Mesh3d.sort
+   Mesh3d.to_pickle
 
 
-mesh4d
+Mesh4d
 ------
 
 .. autosummary::
    :toctree: generated/
 
-   mesh4d.interpolate
-   mesh4d.push
-   mesh4d.read_pickle
-   mesh4d.reshape
-   mesh4d.sort
-   mesh4d.to_pickle
+   Mesh4d.interpolate
+   Mesh4d.push
+   Mesh4d.read_pickle
+   Mesh4d.reshape
+   Mesh4d.sort
+   Mesh4d.to_pickle
 
 
-polymesh2d
+PolyMesh2d
 ----------
 
 .. autosummary::
    :toctree: generated/
 
 
-   polymesh2d.resample
+   PolyMesh2d.resample
 
 
-polymesh3d
+PolyMesh3d
 ----------
 
 .. autosummary::
    :toctree: generated/
 
-   polymesh3d.resample
-   polymesh3d.plot
-   polymesh3d.push
+   PolyMesh3d.resample
+   PolyMesh3d.plot
+   PolyMesh3d.push
 
 
 

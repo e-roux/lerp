@@ -488,7 +488,7 @@ class Mesh2d(mesh):
             return self.__class__(**new_args)
         elif isinstance(obj, Mesh2d):
             new_args['x'] = np.union1d(self.x, obj.x)
-            new_args['y'] = [_y1 * _y2 for _y1, _2 in zip(self(newX), obj(newX))]
+            new_args['y'] = [self(_x) * obj(_x) for _x in new_args['x']]
             return self.__class__(**new_args)
         else:
             logger.warning("Multiplying {} to {} failed".format(
@@ -505,7 +505,7 @@ class Mesh2d(mesh):
             return self.__class__(**new_args)
         elif isinstance(obj, Mesh2d):
             new_args['x'] = np.union1d(self.x, obj.x)
-            new_args['y'] = [_y1 / _y2 for _y1, _y2 in zip(self(newX), obj(newX))]
+            new_args['y'] = [self(_x) / obj(_x) for _x in new_args['x']]
             return self.__class__(**new_args)
         else:
             logger.warning("Multiplyng {} to {} failed".format(
@@ -914,15 +914,10 @@ class Mesh2d(mesh):
             win32clipboard.EmptyClipboard()
             win32clipboard.SetClipboardText(text.encode('utf-8'),
                                             win32clipboard.CF_TEXT)
-            win32clipboard.SetClipboardText(unicode(text),
+            win32clipboard.SetClipboardText(text,
                                             win32clipboard.CF_UNICODETEXT)
             win32clipboard.CloseClipboard()
         set_clipboard('\r\n'.join([str(_x) + '\t' + str(_y) for (_x, _y) in zip(self.x, self.y)]).replace('.', decimal))
-
-    # Compatibilité avec les anciens scripts
-    @deprecated
-    def exportToCSV(self, nbreDecimales=2, fileName=None):
-        self.to_csv(fileName, nbreDecimales)
 
     def to_csv(self, fileName=None, nbreDecimales=2):
         """
@@ -936,8 +931,6 @@ class Mesh2d(mesh):
 
         nbreDecimales : integer
         """
-
-
         import csv
 
         with open(fileName, 'w') as f:
@@ -1703,7 +1696,6 @@ class Mesh4d(mesh):
                           label=self.label, unit=self.unit,
                           extrapolate=self.options['extrapolate'])
 
-            
         try:
             if len(sl) == 2:
                 slx, sly = sl

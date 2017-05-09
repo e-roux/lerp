@@ -1,21 +1,21 @@
-.. polymesh
+.. PolyMesh
 
 
-POLYMESH
+PolyMesh
 ========
 
-polymesh2d
+PolyMesh2d
 ------------
 
-.. autoclass:: polymesh2d
+.. autoclass:: PolyMesh2d
    :members:
    :undoc-members:
 
 
-polymesh3d
+PolyMesh3d
 -----------
 
-.. autoclass:: polymesh3d
+.. autoclass:: PolyMesh3d
    :members:
    :undoc-members:
 

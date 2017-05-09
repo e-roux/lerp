@@ -70,7 +70,7 @@ def myPlot(func):
     
     def wrapper(data, *args, **kwargs):
         import matplotlib.pyplot as plt
-        from lerp import mesh1d, mesh2d
+        from lerp import Mesh1d, Mesh2d
         # --------------------------------------------------------------------
         # Options générales
         # --------------------------------------------------------------------       
@@ -92,10 +92,10 @@ def myPlot(func):
         dY = kwargs.pop('dy') if 'dy' in kwargs else None
         yaxis = kwargs.pop('yaxis') if 'yaxis' in kwargs else 'y1'
                 
-        if isinstance(data, mesh1d):
+        if isinstance(data, Mesh1d):
             Y = data
-            X = mesh1d(np.arange(1, Y.size+1), "Support point", "-")
-        elif isinstance(data, mesh2d):
+            X = Mesh1d(np.arange(1, Y.size+1), "Support point", "-")
+        elif isinstance(data, Mesh2d):
             X = data.x
             Y = data.y
         else:

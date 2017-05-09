@@ -28,6 +28,8 @@ extensions = [
     'sphinx.ext.inheritance_diagram',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
+    'IPython.sphinxext.ipython_console_highlighting',
+    'IPython.sphinxext.ipython_directive',
     'nbsphinx',
     'guzzle_sphinx_theme'
     ]
