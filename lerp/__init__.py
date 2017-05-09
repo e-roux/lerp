@@ -6,30 +6,21 @@ This module delivers utilities to manipulate data meshes
 
 __version__ = "0.1aN"
 
-import sys
-
 # Attention, utilisation d'ascii pour les chaînes de caractères
-__all__ = ["mesh1d", "mesh2d", "mesh3d", "mesh4d", "mesh5d",
-           "polymesh2d", "polymesh3d"]
+__all__ = ["Mesh1d", "Mesh2d", "Mesh3d", "Mesh4d", "Mesh5d",
+           "PolyMesh2d", "PolyMesh3d"]
 
-from copy import deepcopy
-from collections import Iterable, namedtuple
-
+import os.path
 import pickle
-
+from collections import namedtuple
+from copy import deepcopy
+from functools import singledispatch
+from itertools import islice, product
 from numbers import Number
 import numpy as np
-from numpy.polynomial.polynomial import polyval
-
-from scipy import interpolate
-from lerp.intern import deprecated, logger, myPlot
-import os.path
-
-from itertools import islice, product
-from functools import singledispatch
-
 from numpy.core.multiarray import interp as interp2d
 from scipy.interpolate import dfitpack, fitpack
+from lerp.intern import deprecated, logger, myPlot
 
 axis = namedtuple('axis', ['label', 'unit'])
 
@@ -49,6 +40,7 @@ class mesh(object):
                        if not (f.startswith('_') |\
                           ('deprecated' in repr(getattr(self, f))))],
                       key=lambda x : x.lower())
+
     def __len__(self):
         return len(self.d)
 
@@ -79,10 +71,11 @@ def read_pickle(self, fileName=None):
         #raise FileNotFoundError("Please check your path, {} not found".\
         #format(fileName))
 
+
 ############################################################################
-# CLASSE mesh1d
+# CLASSE Mesh1d
 ############################################################################
-class mesh1d(np.ndarray):
+class Mesh1d(np.ndarray):
     """
     Defines a basis class for array/unit/label based objects
 
@@ -103,9 +96,9 @@ class mesh1d(np.ndarray):
 
     .. code-block:: python
 
-        In [1]: from lerp import mesh1d
+        In [1]: from lerp import Mesh1d
 
-        In [2]: x = mesh1d(data=[100, 600, -200, 300], label="Current", unit="A")
+        In [2]: x = Mesh1d(data=[100, 600, -200, 300], label="Current", unit="A")
 
         In [3]: print("Max : {0} {1.unit}".format(x.max(), x))
         Max : 600 A
@@ -122,20 +115,20 @@ class mesh1d(np.ndarray):
 
         # Element added to x, inplace and sorting
          In [7]: x.push( [250, 400 ], sort=True)
-        Out[7]: mesh1d(data=[-200,100,250,300,400,600], label=Current, unit=A)
+        Out[7]: Mesh1d(data=[-200,100,250,300,400,600], label=Current, unit=A)
 
         # Addition, in place
         In [8]: x += 900
 
         In [9]: x
-        Out[9]: mesh1d(data=[700,1000,1200,1500], label=Current, unit=A)
+        Out[9]: Mesh1d(data=[700,1000,1200,1500], label=Current, unit=A)
 
         # Slicing
         In [10]: x[2]
         Out[10]: 1200
 
         In [11]: x[1:3]
-        Out[11]: mesh1d(data=[1000,1200], label="Current", unit="A")
+        Out[11]: Mesh1d(data=[1000,1200], label="Current", unit="A")
 
 
     """
@@ -152,7 +145,7 @@ class mesh1d(np.ndarray):
             obj.unit = unit
             return obj
 
-        @myArray.register(mesh1d)
+        @myArray.register(Mesh1d)
         def _(o):
             if label is not None:
                 o.label = label
@@ -233,17 +226,17 @@ class mesh1d(np.ndarray):
             return False
             
     def apply(self, f, inplace=False):
-        """Apply a function to the complete mesh1d data
+        """Apply a function to the complete Mesh1d data
 
         Parameters
         ----------
         f : function
         inplace: boolean
-            True if yA.x.pushou want the mesh1d to be modified inplace
+            True if yA.x.pushou want the Mesh1d to be modified inplace
 
         Returns
         -------
-        Nothing or mesh1d
+        Nothing or Mesh1d
             Depends if inplace is set to False or True
 
         """
@@ -296,11 +289,11 @@ class mesh1d(np.ndarray):
         obj: class instance
             The other class must have the ``coef`` attribute.
         axis: integer
-            Set to True if you want the mesh1d to be sorted (ascending)
+            Set to True if you want the Mesh1d to be sorted (ascending)
 
         Returns
         -------
-        mesh1d
+        Mesh1d
             Please not that the element(s) are not added inplace!
 
         """
@@ -317,7 +310,7 @@ class mesh1d(np.ndarray):
         ----------
         obj: single numeric, array, numpy.array
         sort: boolean
-              True (default) if you want the mesh1d to be ascending sorted.
+              True (default) if you want the Mesh1d to be ascending sorted.
 
         Returns
         -------
@@ -349,10 +342,11 @@ class mesh1d(np.ndarray):
     def __contains__(self, item):
         return item in np.asarray(self)
         
+
 ############################################################################
-# CLASSE mesh2d
+# CLASSE Mesh2d
 ############################################################################
-class mesh2d(mesh):
+class Mesh2d(mesh):
 
     """
     Fundamental 2D object, strict monotonic
@@ -361,10 +355,10 @@ class mesh2d(mesh):
 
     Parameters
     ----------
-    x : numpy.array or mesh1d
+    x : numpy.array or Mesh1d
         1D array of x-coordinates of the mesh on which to interpolate
 
-    y : numpy.array or mesh1d
+    y : numpy.array or Mesh1d
         1D array of y-coordinates of the mesh on result to be interpolated
 
     fileName : string
@@ -389,8 +383,8 @@ class mesh2d(mesh):
         if clipboard is True:
             self.read_clipboard()
         else:
-            self.x = mesh1d(x, label=x_label, unit=x_unit)
-            self.y = mesh1d(y, label=y_label, unit=y_unit)
+            self.x = Mesh1d(x, label=x_label, unit=x_unit)
+            self.y = Mesh1d(y, label=y_label, unit=y_unit)
 
         self.options = {}
         self.options['extrapolate'] = extrapolate
@@ -409,38 +403,40 @@ class mesh2d(mesh):
         
         Parameters
         ----------
-        obj : Number or mesh2d like
+        obj : Number or Mesh2d like
               object to add to current object
             
             
         Returns
         ----------
-        mesh2d
+        Mesh2d
         
         Notes
         ------------
         Pay attention to 'extrapolate' options as it impacts the adding behavior of both arrays.
         
         Exemple
-        ----------        
-        In [1]: A = mesh2d([1, 2, 3], [0.5, 6, 9.0])
+        ---------- 
+                
+        
+        In [1]: A = Mesh2d([1, 2, 3], [0.5, 6, 9.0])
 
         In [2]: A
         Out[2]: 
-        x = mesh1d(data=[1, 2, 3], label="None", unit="None")
-        y = mesh1d(data=[ 0.5,  6. ,  9. ], label="None", unit="None")
+        x = Mesh1d(data=[1, 2, 3], label="None", unit="None")
+        y = Mesh1d(data=[ 0.5,  6. ,  9. ], label="None", unit="None")
         
         In [3]: A + 10
         Out[3]: 
-        x = mesh1d(data=[1, 2, 3], label="None", unit="None")
-        y = mesh1d(data=[ 10.5,  16. ,  19. ], label="None", unit="None")
+        x = Mesh1d(data=[1, 2, 3], label="None", unit="None")
+        y = Mesh1d(data=[ 10.5,  16. ,  19. ], label="None", unit="None")
         
-        In [4]: B = mesh2d([0.4, 3, 6], [0.5, 6, 9.0])
+        In [4]: B = Mesh2d([0.4, 3, 6], [0.5, 6, 9.0])
         
         In [5]: A + B
         Out[5]: 
-        x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
-        y = mesh1d(data=[ -2.3 ,   2.27,   9.88,  15.  ,  27.  ], label="None", unit="None")
+        x = Mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
+        y = Mesh1d(data=[ -2.3 ,   2.27,   9.88,  15.  ,  27.  ], label="None", unit="None")
         
         In [6]: A.options
         Out[6]: {'extrapolate': True}
@@ -449,19 +445,19 @@ class mesh2d(mesh):
         
         In [8]: A + B
         Out[8]: 
-        x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
-        y = mesh1d(data=[  1.  ,   2.27,   9.88,  15.  ,  18.  ], label="None", unit="None")
+        x = Mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
+        y = Mesh1d(data=[  1.  ,   2.27,   9.88,  15.  ,  18.  ], label="None", unit="None")
 
         """
-        newArgs = deepcopy(self.__dict__)
+        new_args = deepcopy(self.__dict__)
         if isinstance(obj, Number):
             # Casting rule from numpy
-            newArgs['y'] = np.add(self.y, obj)
-            return self.__class__(**newArgs)
-        elif isinstance(obj, mesh2d):
-            newArgs['x'] = np.union1d(self.x, obj.x)
-            newArgs['y'] = [_y1 + _y2 for _y1, _y2 in zip(self(newArgs['x']), obj(newArgs['x']))]
-            return self.__class__(**newArgs)
+            new_args['y'] = np.add(self.y, obj)
+            return self.__class__(**new_args)
+        elif isinstance(obj, Mesh2d):
+            new_args['x'] = np.union1d(self.x, obj.x)
+            new_args['y'] = [_y1 + _y2 for _y1, _y2 in zip(self(new_args['x']), obj(new_args['x']))]
+            return self.__class__(**new_args)
         else:
             logger.warning("Adding {} to {} failed".format(
                            obj.__class__.__name__,
@@ -476,24 +472,24 @@ class mesh2d(mesh):
         
         Parameters
         ----------
-        obj : Number or mesh2d like
+        obj : Number or Mesh2d like
               object to multiply to current object
             
             
         Returns
         ----------
-        mesh2d        
+        Mesh2d        
         
         """
-        newArgs = deepcopy(self.__dict__)
+        new_args = deepcopy(self.__dict__)
         if isinstance(obj, Number):
             # Casting rule from numpy
-            newArgs['y'] = np.multiply(self.y, obj)
-            return self.__class__(**newArgs)
-        elif isinstance(obj, mesh2d):
-            newArgs['x'] = np.union1d(self.x, obj.x)      
-            newArgs['y'] = [_y1 * _y2 for _y1, _2 in zip(self(newX), obj(newX))]
-            return self.__class__(**newArgs)
+            new_args['y'] = np.multiply(self.y, obj)
+            return self.__class__(**new_args)
+        elif isinstance(obj, Mesh2d):
+            new_args['x'] = np.union1d(self.x, obj.x)
+            new_args['y'] = [_y1 * _y2 for _y1, _2 in zip(self(newX), obj(newX))]
+            return self.__class__(**new_args)
         else:
             logger.warning("Multiplying {} to {} failed".format(
                            obj.__class__.__name__,
@@ -502,15 +498,15 @@ class mesh2d(mesh):
     def __truediv__(self, obj):
         """
         """
-        newArgs = deepcopy(self.__dict__)
+        new_args = deepcopy(self.__dict__)
         if isinstance(obj, Number):
             # Casting rule from numpy
-            newArgs['y'] = np.divide(self.y, obj)
-            return self.__class__(**newArgs)
-        elif isinstance(obj, mesh2d):
-            newArgs['x'] = np.union1d(self.x, obj.x)
-            newArgs['y'] = [_y1 / _y2 for _y1, _y2 in zip(self(newX), obj(newX))]
-            return self.__class__(**newArgs)
+            new_args['y'] = np.divide(self.y, obj)
+            return self.__class__(**new_args)
+        elif isinstance(obj, Mesh2d):
+            new_args['x'] = np.union1d(self.x, obj.x)
+            new_args['y'] = [_y1 / _y2 for _y1, _y2 in zip(self(newX), obj(newX))]
+            return self.__class__(**new_args)
         else:
             logger.warning("Multiplyng {} to {} failed".format(
                            obj.__class__.__name__,
@@ -667,11 +663,11 @@ class mesh2d(mesh):
         axis: string
             "x" or "y"
         inplace: boolean
-            True if you want the mesh1d to be modified inplace
+            True if you want the Mesh1d to be modified inplace
 
         Returns
         -------
-        Nothing or mesh1d
+        Nothing or Mesh1d
             Depends if inplace is set to False or True
 
         """
@@ -679,12 +675,12 @@ class mesh2d(mesh):
             if inplace is True:
                 self.y.apply(f, inplace)
             else:
-                return mesh2d(self.x, self.y.apply(f))
+                return Mesh2d(self.x, self.y.apply(f))
         elif axis == "x":
             if inplace is True:
                 self.x.apply(f, inplace)
             else:
-                return mesh2d(self.x.apply(f), self.y)
+                return Mesh2d(self.x.apply(f), self.y)
         else:
             print("apply used on non existing axis")
 
@@ -844,7 +840,7 @@ class mesh2d(mesh):
         return
 
     def polyfit(self, degree=2):
-        return polymesh2d(p=np.polyfit(self.x,
+        return PolyMesh2d(p=np.polyfit(self.x,
                                        self.y,
                                        degree),
                           x_label = self.x.label, x_unit = self.x.unit,
@@ -855,19 +851,19 @@ class mesh2d(mesh):
         def _en_col(s):
             import re
             _res = re.findall(r'[\-\+\d\.]+', s)
-            self.x = mesh1d([float(a) for (i, a)
+            self.x = Mesh1d([float(a) for (i, a)
                              in enumerate(_res) if not i % 2],
                             self.x.label, self.x.unit)
-            self.y = mesh1d([float(a) for (i, a) in enumerate(_res) if i % 2],
+            self.y = Mesh1d([float(a) for (i, a) in enumerate(_res) if i % 2],
                             self.y.label, self.y.unit)
 
         def _en_ligne(s):
             # En colonne
             s = s.split('\r\n')
             if len(s) == 2:
-                self.x = mesh1d([float(a) for a in s[0].split('\t')],
+                self.x = Mesh1d([float(a) for a in s[0].split('\t')],
                                 self.x.label, self.x.unit)
-                self.y = mesh1d([float(a) for a in s[1].split('\t')],
+                self.y = Mesh1d([float(a) for a in s[1].split('\t')],
                                 self.y.label, self.y.unit)
 
         def get_clipboard():
@@ -908,7 +904,7 @@ class mesh2d(mesh):
             print("Pas importable")
 
     def resample(self, x):
-         return self.__class__(x=mesh1d(x, **self.x.__dict__),
+         return self.__class__(x=Mesh1d(x, **self.x.__dict__),
                                y=self.y.__class__(self(x), **self.y.__dict__))
 
     def to_clipboard(self, transpose=False, decimal=","):
@@ -966,7 +962,7 @@ class mesh2d(mesh):
 
     def _init_gradient(self):
         _d = np.diff(self.x)
-        self._gradient = mesh2d( self.x, np.gradient(self.y, np.concatenate((_d, [_d[-1]]))))
+        self._gradient = Mesh2d( self.x, np.gradient(self.y, np.concatenate((_d, [_d[-1]]))))
 
     def gradient(self, x=None):
         if self._gradient is None:
@@ -1010,9 +1006,9 @@ class mesh2d(mesh):
 
 
 ############################################################################
-# CLASSE mesh3d
+# CLASSE Mesh3d
 ############################################################################
-class mesh3d(mesh):
+class Mesh3d(mesh):
     """
     Interpolate over a 2-D grid.
 
@@ -1047,7 +1043,7 @@ class mesh3d(mesh):
 
     def __add__(self, other):
 
-        if isinstance(other, mesh2d):
+        if isinstance(other, Mesh2d):
             if np.all(self._x == other.x):
                 _z = self.d + other.y.reshape(len(other),1)
             elif np.all(self._y == other.x):
@@ -1060,10 +1056,10 @@ class mesh3d(mesh):
             return self.__class__(self._x, self._y, self.d + other,
                                   self.label, self.unit, **self.options)
         
-        X = mesh1d(np.sort(np.unique(np.concatenate((self._x, other._x)))),
+        X = Mesh1d(np.sort(np.unique(np.concatenate((self._x, other._x)))),
                    self.x.label,
                    self.x.unit)
-        Y = mesh1d(np.sort(np.unique(np.concatenate((self._y, other._y)))),
+        Y = Mesh1d(np.sort(np.unique(np.concatenate((self._y, other._y)))),
                    self._y.label,
                    self._y.unit)
 
@@ -1081,11 +1077,11 @@ class mesh3d(mesh):
     def __mul__(self, obj):
         """
         """
-        newArgs = deepcopy(self.__dict__)
+        new_args = deepcopy(self.__dict__)
         if isinstance(obj, Number):
             # Casting rule from numpy
-            newArgs['d'] = np.multiply(self.d, obj)
-            return self.__class__(**newArgs)
+            new_args['d'] = np.multiply(self.d, obj)
+            return self.__class__(**new_args)
         else:
             logger.warning("Multiplying {} to {} failed".format(
                            obj.__class__.__name__,
@@ -1094,11 +1090,11 @@ class mesh3d(mesh):
     def __truediv__(self, obj):
         """
         """
-        newArgs = deepcopy(self.__dict__)
+        new_args = deepcopy(self.__dict__)
         if isinstance(obj, Number):
             # Casting rule from numpy
-            newArgs['d'] = np.divide(self.d, obj)
-            return self.__class__(**newArgs)
+            new_args['d'] = np.divide(self.d, obj)
+            return self.__class__(**new_args)
         else:
             logger.warning("Multiplyng {} to {} failed".format(
                            obj.__class__.__name__,
@@ -1175,10 +1171,10 @@ class mesh3d(mesh):
         self.options = {}
         self.options['extrapolate'] = extrapolate
 
-        self._x = mesh1d(x, label=x_label, unit=x_unit) if "_x" not in kwargs \
+        self._x = Mesh1d(x, label=x_label, unit=x_unit) if "_x" not in kwargs \
             else kwargs["_x"]
         
-        self._y = mesh1d(y, label=y_label, unit=y_unit) if "_y" not in kwargs \
+        self._y = Mesh1d(y, label=y_label, unit=y_unit) if "_y" not in kwargs \
             else kwargs["_y"]
 
         if "d" not in kwargs:
@@ -1229,7 +1225,7 @@ class mesh3d(mesh):
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
-        table = ET.SubElement(res, 'table', {'style': _html_style['none'], 'class' : 'mesh3d'})
+        table = ET.SubElement(res, 'table', {'style': _html_style['none'], 'class' : 'Mesh3d'})
         tbody = ET.SubElement(table, 'tbody')
         
         for _a in np.arange(3):
@@ -1297,7 +1293,7 @@ class mesh3d(mesh):
         isYslice = False
 
         def _get_m2d(slx, slw):
-            return mesh2d(x=slx, y=mesh1d(slw, self.label, self.unit), extrapolate=self.options['extrapolate'])
+            return Mesh2d(x=slx, y=Mesh1d(slw, self.label, self.unit), extrapolate=self.options['extrapolate'])
         
         try:
             if len(sl) == 2:
@@ -1352,7 +1348,7 @@ class mesh3d(mesh):
             W[d] = f(W[d])
 
         if inplace is False:
-            return mesh3d(X, Y, W, self.label, self.unit)
+            return Mesh3d(X, Y, W, self.label, self.unit)
 
     def pop(self, axis=0):       
         axisLenght = np.ma.size(self.d, axis=axis)
@@ -1403,12 +1399,12 @@ class mesh3d(mesh):
             if isxN:
                 y = self._y if y is None\
                     else self._y.__class__(y, **self._y.__dict__)
-                return mesh2d(y, mesh1d([self.interpolate(x, _y) for _y in y],
+                return Mesh2d(y, Mesh1d([self.interpolate(x, _y) for _y in y],
                               self.label, self.unit))
             else:
                 x = self._x if x is None\
                     else self._x.__class__(x, **self._x.__dict__)
-                return mesh2d(x, mesh1d([self.interpolate(_x, y) for _x in x],
+                return Mesh2d(x, Mesh1d([self.interpolate(_x, y) for _x in x],
                               self.label, self.unit))
         # Either x nor y are numeric
         else:
@@ -1459,13 +1455,13 @@ class mesh3d(mesh):
             self.options['extrapolate']
             if isxN:
                 y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
-                res = mesh2d(y, mesh1d([self(x, _y) for _y in y],
+                res = Mesh2d(y, Mesh1d([self(x, _y) for _y in y],
                                        self.label, self.unit))
                 self.options['extrapolate'] = extrapolate
                 return res
             else:
                 x = self._x if x is None else self._x.__class__(x, **self._x.__dict__)
-                res = mesh2d(x, mesh1d([self(_x, y) for _x in x],
+                res = Mesh2d(x, Mesh1d([self(_x, y) for _x in x],
                                        self.label, self.unit))
                 self.options['extrapolate'] = extrapolate
                 return res                                        
@@ -1603,9 +1599,9 @@ class mesh3d(mesh):
                               sort=False)
     
 ############################################################################
-# CLASSE mesh4d
+# CLASSE Mesh4d
 ############################################################################
-class mesh4d(mesh):
+class Mesh4d(mesh):
     """
     """
    
@@ -1623,9 +1619,9 @@ class mesh4d(mesh):
         self.options = {}
         self.options['extrapolate'] = extrapolate
 
-        self._x = mesh1d(x, label=x_label, unit=x_unit)
-        self._y = mesh1d(y, label=y_label, unit=y_unit)
-        self._z = mesh1d(z, label=z_label, unit=z_unit)
+        self._x = Mesh1d(x, label=x_label, unit=x_unit)
+        self._y = Mesh1d(y, label=y_label, unit=y_unit)
+        self._z = Mesh1d(z, label=z_label, unit=z_unit)
         self.d = np.zeros((self._x.size, self._y.size, self._z.size)) if d is None else\
                  np.asfarray(d, dtype=dtype)
         
@@ -1700,10 +1696,10 @@ class mesh4d(mesh):
         isZslice = False
         
         def _get_m2d(slx, slw):
-            return mesh2d(x=slx, y=mesh1d(slw, self.label, self.unit),
+            return Mesh2d(x=slx, y=Mesh1d(slw, self.label, self.unit),
                           extrapolate=self.options['extrapolate'])
         def _get_m3d(slx, sly, w):
-            return mesh3d(x=slx, y=sly, w=w, 
+            return Mesh3d(x=slx, y=sly, w=w, 
                           label=self.label, unit=self.unit,
                           extrapolate=self.options['extrapolate'])
 
@@ -1790,7 +1786,7 @@ class mesh4d(mesh):
         wA = axeConv.get(axis)
         _axis = getattr(self, wA)
         
-        # TODO: check that every (x,y) from mesh3d to add are the same as the 
+        # TODO: check that every (x,y) from Mesh3d to add are the same as the 
         if len(self.x) == 0:
             self.x = d.x
         
@@ -1883,31 +1879,31 @@ class mesh4d(mesh):
         z = z  if z is not None else  self.z      
       
         test = {
-            (True, True, False) : "__import__('lerp').mesh2d(\
-                __import__('lerp').mesh1d(z, **self.z.__dict__),\
-                __import__('lerp').mesh1d([self(x,y,_z) for _z in z],\
+            (True, True, False) : "__import__('lerp').Mesh2d(\
+                __import__('lerp').Mesh1d(z, **self.z.__dict__),\
+                __import__('lerp').Mesh1d([self(x,y,_z) for _z in z],\
                 label=self.label, unit=self.unit), **self.options)",
-            (True, False, True) : "__import__('lerp').mesh2d(\
-                __import__('lerp').mesh1d(y, **self.y.__dict__),\
-                __import__('lerp').mesh1d([self(x,_y,z) for _y in y],\
+            (True, False, True) : "__import__('lerp').Mesh2d(\
+                __import__('lerp').Mesh1d(y, **self.y.__dict__),\
+                __import__('lerp').Mesh1d([self(x,_y,z) for _y in y],\
                 label=self.label, unit=self.unit), **self.options)",
-            (False, True, True) : "__import__('lerp').mesh2d(\
-                __import__('lerp').mesh1d(x, **self.x.__dict__),\
-                __import__('lerp').mesh1d([self(_x,y,z) for _x in x],\
+            (False, True, True) : "__import__('lerp').Mesh2d(\
+                __import__('lerp').Mesh1d(x, **self.x.__dict__),\
+                __import__('lerp').Mesh1d([self(_x,y,z) for _x in x],\
                 label=self.label, unit=self.unit), **self.options)",
-            (True, False, False) : "__import__('lerp').mesh3d(\
-                __import__('lerp').mesh1d(y, **self.y.__dict__),\
-                __import__('lerp').mesh1d(z, **self.z.__dict__),\
+            (True, False, False) : "__import__('lerp').Mesh3d(\
+                __import__('lerp').Mesh1d(y, **self.y.__dict__),\
+                __import__('lerp').Mesh1d(z, **self.z.__dict__),\
                [self(x,_y,_z) for _y, _z in  __import__('itertools').product(y,z)],\
                 label=self.label, unit=self.unit, **self.options)",
-            (False, True, False) : "__import__('lerp').mesh3d(\
-                __import__('lerp').mesh1d(x, **self.x.__dict__),\
-                __import__('lerp').mesh1d(z, **self.z.__dict__),\
+            (False, True, False) : "__import__('lerp').Mesh3d(\
+                __import__('lerp').Mesh1d(x, **self.x.__dict__),\
+                __import__('lerp').Mesh1d(z, **self.z.__dict__),\
                [self(_x,y,_z) for _x, _z in  __import__('itertools').product(x,z)],\
                 label=self.label, unit=self.unit, **self.options)",
-            (False, False, True) : "__import__('lerp').mesh3d(\
-                __import__('lerp').mesh1d(x, **self.x.__dict__),\
-                __import__('lerp').mesh1d(y, **self.y.__dict__),\
+            (False, False, True) : "__import__('lerp').Mesh3d(\
+                __import__('lerp').Mesh1d(x, **self.x.__dict__),\
+                __import__('lerp').Mesh1d(y, **self.y.__dict__),\
                [self(_x,_y,z) for _x, _y in  __import__('itertools').product(x,y)],\
                 label=self.label, unit=self.unit, **self.options)",                
         }
@@ -1956,9 +1952,9 @@ class mesh4d(mesh):
 
 
 ############################################################################
-# CLASSE mesh5d
+# CLASSE Mesh5d
 ############################################################################
-class mesh5d(mesh):
+class Mesh5d(mesh):
     """
     """
    
@@ -1977,10 +1973,10 @@ class mesh5d(mesh):
         self.options = {}
         self.options['extrapolate'] = extrapolate
 
-        self._x = mesh1d(x, label=x_label, unit=x_unit)
-        self._y = mesh1d(y, label=y_label, unit=y_unit)
-        self._z = mesh1d(z, label=z_label, unit=z_unit)
-        self._v = mesh1d(v, label=v_label, unit=v_unit)
+        self._x = Mesh1d(x, label=x_label, unit=x_unit)
+        self._y = Mesh1d(y, label=y_label, unit=y_unit)
+        self._z = Mesh1d(z, label=z_label, unit=z_unit)
+        self._v = Mesh1d(v, label=v_label, unit=v_unit)
         self.d = np.zeros((self._x.size, self._y.size, self._z.size, self._v.size)) if d is None else\
                  np.asfarray(d, dtype=dtype)
         
@@ -2110,9 +2106,9 @@ class mesh5d(mesh):
 
 
 ############################################################################
-# CLASSE polymesh2d
+# CLASSE PolyMesh2d
 ############################################################################
-class polymesh2d(object):
+class PolyMesh2d(object):
     """
     """
     def __init__(self, p=None, x_label=None, x_unit=None,
@@ -2126,8 +2122,8 @@ class polymesh2d(object):
         if isinstance(x, Number):
             return self.p(x)
         else:
-            return mesh2d(x=mesh1d(x, self.x.label, self.x.unit),
-                          y=mesh1d(self.p(x), self.y.label, self.y.unit))
+            return Mesh2d(x=Mesh1d(x, self.x.label, self.x.unit),
+                          y=Mesh1d(self.p(x), self.y.label, self.y.unit))
 
     def plot(self, *pargs, **kwargs):
         import matplotlib.pyplot as plt
@@ -2207,14 +2203,14 @@ class polymesh2d(object):
         return self._polyprint(html=True)
 
     def resample(self, x):
-        return mesh2d(x=mesh1d(x, label=self.x.label, unit=self.x.unit),
-                      y=mesh1d(self.p(x), label=self.y.label, unit=self.y.unit))
+        return Mesh2d(x=Mesh1d(x, label=self.x.label, unit=self.x.unit),
+                      y=Mesh1d(self.p(x), label=self.y.label, unit=self.y.unit))
 
 
 ############################################################################
-# CLASSE polymesh3d
+# CLASSE PolyMesh3d
 ############################################################################
-class polymesh3d(object):
+class PolyMesh3d(object):
     """
     """
     def __init__(self, x_label=None, x_unit=None,
@@ -2229,7 +2225,7 @@ class polymesh3d(object):
 
     @property
     def x(self):
-        return mesh1d(self.p.x, 
+        return Mesh1d(self.p.x, 
                       label=self._x.label,
                       unit=self._x.unit)
 
@@ -2238,12 +2234,12 @@ class polymesh3d(object):
         """
         Describe the highest coefficent
         """
-        return mesh1d(np.arange((max([len(_p.p.p.coeffs) for _p in self.p]))),
+        return Mesh1d(np.arange((max([len(_p.p.p.coeffs) for _p in self.p]))),
                       label=self._y.label,
                       unit=self._y.unit)                      
     
     def push(self, y, p):
-        newElement = np.rec.array([(y,polymesh2d(p))], dtype=self._dtype)
+        newElement = np.rec.array([(y,PolyMesh2d(p))], dtype=self._dtype)
         try:
             self.p = np.rec.array(np.append(newElement, self.p))
         except:
@@ -2258,13 +2254,13 @@ class polymesh3d(object):
         for _x, _P in enumerate(self.p):
             self._w[_x, -len(_P.p.p)-1:] = np.array(_P.p.p.coeffs)
             
-        self._m3d = mesh3d(x=self.x, y=self.y, w=self._w,
+        self._m3d = Mesh3d(x=self.x, y=self.y, w=self._w,
                            label=self.z.label,
                            unit=self.z.label)
 
     def __call__(self, x=None, y=None):
         
-        myPoly = polymesh2d(self._m3d(x=x).y, x_label=self.y.label,
+        myPoly = PolyMesh2d(self._m3d(x=x).y, x_label=self.y.label,
                             x_unit=self.y.unit,y_label=self.z.label,
                             y_unit=self.z.unit)
         if y is None:
@@ -2273,7 +2269,7 @@ class polymesh3d(object):
 #           if y is not None:
             return myPoly(y)
 #            else:
-#                res = mesh3d(x=x, y=self.p.x,
+#                res = Mesh3d(x=x, y=self.p.x,
 #                             w=np.empty((len(self.x), len(self.y))),
 #                             x_label=self.x.label, x_unit=self.x.unit,
 #                             y_label=self.y.label, y_unit=self.y.unit,
@@ -2288,8 +2284,8 @@ class polymesh3d(object):
         plt.legend(loc=2)
         
     def resample(self, y):
-        res = mesh3d(x=mesh1d(**self.x.__dict__),
-                     y=mesh1d(y, **self.y.__dict__),
+        res = Mesh3d(x=Mesh1d(**self.x.__dict__),
+                     y=Mesh1d(y, **self.y.__dict__),
                      label=self.z.label, unit=self.z.unit)
         for x, p in self.p:
             res.push(x, p(y).y)
