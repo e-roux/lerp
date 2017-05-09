@@ -44,6 +44,20 @@ class mesh(object):
     def __len__(self):
         return len(self.d)
 
+    def read_pickle(self, fileName=None):
+        try:
+            fileName = os.path.normpath(fileName)
+            os.path.exists(fileName)
+            with open(fileName, 'rb') as f:
+                # The protocol version used is detected automatically,
+                # so we do not have to specify it.
+                data = pickle.load(f)
+            return data
+        except:
+            raise
+            #raise FileNotFoundError("Please check your path, {} not found".\
+            #format(fileName))
+
     def to_pickle(self, fileName=None):
         try:
             fileName = os.path.normpath(fileName)
@@ -57,19 +71,6 @@ class mesh(object):
 def add(*objs):
     print(*objs)
 
-def read_pickle(self, fileName=None):
-    try:
-        fileName = os.path.normpath(fileName)
-        os.path.exists(fileName)
-        with open(fileName, 'rb') as f:
-            # The protocol version used is detected automatically,
-            # so we do not have to specify it.
-            data = pickle.load(f)            
-        return data
-    except:
-        raise
-        #raise FileNotFoundError("Please check your path, {} not found".\
-        #format(fileName))
 
 
 ############################################################################
@@ -1528,20 +1529,6 @@ class Mesh3d(mesh):
         import pandas as pd
         s = pd.read_clipboard(index_col=0, decimal=",")
         self.from_pandas(s)
-
-    def read_pickle(self, fileName=None):
-        try:
-            fileName = os.path.normpath(fileName)
-            os.path.exists(fileName)
-            with open(fileName, 'rb') as f:
-                # The protocol version used is detected automatically,
-                # so we do not have to specify it.
-                data = pickle.load(f)            
-            return data
-        except:
-            raise
-            #raise FileNotFoundError("Please check your path, {} not found".\
-            #format(fileName))
 
     def reshape(self, sort=True):
         if len(self.x) > 0:
