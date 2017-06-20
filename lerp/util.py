@@ -8,7 +8,7 @@ from os import mkdir, system
 import os.path
 import numpy as np
 import pandas as pd
-from lerp.__init__ import Mesh2d, Mesh3d
+from lerp.__init__ import mesh2d, mesh3d
 
 from openpyxl import load_workbook
 from openpyxl.utils import rows_from_range
@@ -113,11 +113,11 @@ class xlsx(object):
                 if min(res.shape) == 1:
                     if res.shape[0] < res.shape[1]:
                         res = res.T
-                    myMesh = mesh2d(res.index, res.iloc[:,0])
+                    mymesh = mesh2d(res.index, res.iloc[:,0])
                 else:
-                    myMesh = mesh3d()
-                    myMesh.from_pandas(res)
-                return myMesh
+                    mymesh = mesh3d()
+                    mymesh.from_pandas(res)
+                return mymesh
             else:
                 return res
         except:
