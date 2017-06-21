@@ -397,7 +397,7 @@ class mesh2d(mesh):
             self.read_clipboard()
         else:
             self.x = mesh1d(x, label=x_label, unit=x_unit)
-            self.d = mesh1d(d, label=label, unit=unit)
+            self._d = mesh1d(d, label=label, unit=unit)
 
         self.options = {}
         self.options['extrapolate'] = extrapolate

@@ -97,7 +97,7 @@ def myPlot(func):
             X = mesh1d(np.arange(1, Y.size+1), "Support point", "-")
         elif isinstance(data, mesh2d):
             X = data.x
-            Y = data.y
+            Y = data.d
         else:
             raise Exception("No data to plot")
         
