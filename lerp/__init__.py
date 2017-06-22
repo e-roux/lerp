@@ -2101,7 +2101,7 @@ class polymesh2d(object):
             return self.p(x)
         else:
             return mesh2d(x=mesh1d(x, self.x.label, self.x.unit),
-                          y=mesh1d(self.p(x), self.y.label, self.y.unit))
+                          d=mesh1d(self.p(x), self.y.label, self.y.unit))
 
     def plot(self, *pargs, **kwargs):
         import matplotlib.pyplot as plt
