@@ -34,13 +34,13 @@ _html_style = {
 
 class mesh(abc.ABC):
     """
-    
+
     """
     @property
     @abc.abstractmethod
     def d(self):
         """
-        :return: 
+        :return:
         """
 
     def __dir__(self):
@@ -280,7 +280,7 @@ class mesh1d(np.ndarray):
         """
         mean
         ^^^^^^^^
-        
+
         Returns
         -------
         Object mean
@@ -333,7 +333,7 @@ class mesh1d(np.ndarray):
         Notes
         -----
         As instance of numpy array, the elements are not added inplace
-        
+
         """
         # Test if self is not empty array
         try:
@@ -411,7 +411,7 @@ class mesh2d(mesh):
         self._steps.__call__ = self.step
         self.label = label
         self.unit = unit
-        
+
     @property
     def d(self):
         return self._d
@@ -423,51 +423,51 @@ class mesh2d(mesh):
     def __add__(self, obj):
         """
         Adds obj to self along d-axis
-        
+
         Parameters
         ----------
         obj : Number or mesh2d like
               object to add to current object
-            
-            
+
+
         Returns
         ----------
         mesh2d
-        
+
         Notes
         ------------
         Pay attention to 'extrapolate' options as it impacts the adding behavior of both arrays.
-        
+
         Exemple
-        ---------- 
-                
-        
+        ----------
+
+
         In [1]: A = mesh2d([1, 2, 3], [0.5, 6, 9.0])
 
         In [2]: A
-        Out[2]: 
+        Out[2]:
         x = mesh1d(data=[1, 2, 3], label="None", unit="None")
         d = mesh1d(data=[ 0.5,  6. ,  9. ], label="None", unit="None")
-        
+
         In [3]: A + 10
-        Out[3]: 
+        Out[3]:
         x = mesh1d(data=[1, 2, 3], label="None", unit="None")
         d = mesh1d(data=[ 10.5,  16. ,  19. ], label="None", unit="None")
-        
+
         In [4]: B = mesh2d([0.4, 3, 6], [0.5, 6, 9.0])
-        
+
         In [5]: A + B
-        Out[5]: 
+        Out[5]:
         x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
         d = mesh1d(data=[ -2.3 ,   2.27,   9.88,  15.  ,  27.  ], label="None", unit="None")
-        
+
         In [6]: A.options
         Out[6]: {'extrapolate': True}
-        
+
         In [7]: A.options['extrapolate'] = False
-        
+
         In [8]: A + B
-        Out[8]: 
+        Out[8]:
         x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
         d = mesh1d(data=[  1.  ,   2.27,   9.88,  15.  ,  18.  ], label="None", unit="None")
 
@@ -492,17 +492,17 @@ class mesh2d(mesh):
     def __mul__(self, obj):
         """
         Adds obj to self along d-axis
-        
+
         Parameters
         ----------
         obj : Number or mesh2d like
               object to multiply to current object
-            
-            
+
+
         Returns
         ----------
-        mesh2d        
-        
+        mesh2d
+
         """
         new_args = deepcopy(self.__dict__)
         if isinstance(obj, Number):
@@ -1158,17 +1158,17 @@ class mesh3d(mesh):
         x -> row (index 0 of W)
         Y -> column (index 1 of W)
         W -> Z values
-        
+
         Z
           Z
             Z
                Y   Y   Y   Y
-              X   
               X
               X
               X
               X
-        
+              X
+
         """
 
         self.label = label
@@ -1767,7 +1767,7 @@ class mesh4d(mesh):
         wA = axeConv.get(axis)
         _axis = getattr(self, wA)
 
-        # TODO: check that every (x,y) from mesh3d to add are the same as the 
+        # TODO: check that every (x,y) from mesh3d to add are the same as the
         if len(self.x) == 0:
             self.x = d.x
 
@@ -2101,7 +2101,7 @@ class polymesh2d(object):
             return self.p(x)
         else:
             return mesh2d(x=mesh1d(x, self.x.label, self.x.unit),
-                          d=mesh1d(self.p(x), self.y.label, self.y.unit))
+                          d=mesh1d(self.p(x), self.d.label, self.d.unit))
 
     def plot(self, *pargs, **kwargs):
         import matplotlib.pyplot as plt
