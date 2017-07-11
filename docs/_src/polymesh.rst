@@ -1,21 +1,21 @@
-.. PolyMesh
+.. polymesh
 
+.. module:: lerp
 
-PolyMesh
+polymesh
 ========
 
-PolyMesh2d
+polymesh2d
 ------------
 
-.. autoclass:: PolyMesh2d
+.. autoclass:: polymesh2d
    :members:
    :undoc-members:
 
 
-PolyMesh3d
+polymesh3d
 -----------
 
-.. autoclass:: PolyMesh3d
+.. autoclass:: polymesh3d
    :members:
    :undoc-members:
-
