@@ -77,8 +77,8 @@ class mesh(abc.ABC):
             with open(fileName, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         except:
-            raise FileNotFoundError("Please check your path, {} not found". \
-                                    format(fileName))
+            raise FileNotFoundError(f"Please check your path, \
+                {fileName} not found.")
 
 
 def add(*objs):
@@ -1904,7 +1904,6 @@ class mesh4d(mesh):
         root.append(ET.fromstring(self.y._repr_html_()))
         root.append(ET.fromstring(self.z._repr_html_()))
 
-        # return self.x._repr_html_() + self.y._repr_html_() + self.z._repr_html_()
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
 
     def read_pickle(self, fileName=None):
@@ -1927,8 +1926,8 @@ class mesh4d(mesh):
             with open(fileName, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         except:
-            raise FileNotFoundError("Please check your path, {} not found". \
-                                    format(fileName))
+            raise FileNotFoundError(f"Please check your path, \
+                {fileName} not found")
 
 
 ############################################################################
@@ -1957,7 +1956,8 @@ class mesh5d(mesh):
         self._y = mesh1d(y, label=y_label, unit=y_unit)
         self._z = mesh1d(z, label=z_label, unit=z_unit)
         self._v = mesh1d(v, label=v_label, unit=v_unit)
-        self.d = np.zeros((self._x.size, self._y.size, self._z.size, self._v.size)) if d is None else \
+        self.d = np.zeros((self._x.size, self._y.size, self._z.size,
+                           self._v.size)) if d is None else \
             np.asfarray(d, dtype=dtype)
 
         self.reshape()
@@ -2048,7 +2048,8 @@ class mesh5d(mesh):
         pre = ET.SubElement(root, 'p')
         ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
         ET.SubElement(pre, 'b').text = self.label or "Label"
-        span = ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+        span = ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or
+                                                                "unit")
         ET.SubElement(pre, 'br')
 
         root.append(ET.fromstring(self.x._repr_html_()))
@@ -2079,7 +2080,7 @@ class mesh5d(mesh):
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         except:
             raise FileNotFoundError(f"Please check your path, \
-            {format(fileName)} not found.")
+            {fileName} not found.")
 
 
 ############################################################################
