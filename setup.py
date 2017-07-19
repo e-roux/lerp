@@ -3,7 +3,7 @@
 from setuptools import setup, find_packages
 #from setuptools.config import read_configuration
 
-conf_dict = read_configuration('./setup.cfg')
+#conf_dict = read_configuration('./setup.cfg')
 
 setup(
     name = "lerp",
