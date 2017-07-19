@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
 
+import os
 from setuptools import setup, find_packages
 #from setuptools.config import read_configuration
 
 #conf_dict = read_configuration('./setup.cfg')
+def read(fname):
+    return open(os.path.join(os.path.dirname(__file__), fname)).read()
+
 
 setup(
     name = "lerp",
