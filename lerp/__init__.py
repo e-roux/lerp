@@ -36,16 +36,14 @@ class mesh(abc.ABC):
     """
 
     """
-    @property
-    @abc.abstractmethod
-    def d(self):
-        """
-        :return:
-        """
+    #@property
+    #@abc.abstractmethod
+    #def d(self):
+    #    """
+    #    :return:
+    #    """
 
     def __dir__(self):
-        # print([repr(getattr(self, f)) for f in dir(self.__class__)])
-        # Remove deprecated methods from dir()
         return sorted([f for f in dir(self.__class__) \
                        if not (f.startswith('_') | \
                                ('deprecated' in repr(getattr(self, f))))],
@@ -53,6 +51,9 @@ class mesh(abc.ABC):
 
     def __len__(self):
         return self.d.size
+
+    def __sub__(self, obj):
+        return self.__add__(-obj)
 
     def shape(self):
         return self.d.shape
@@ -80,9 +81,51 @@ class mesh(abc.ABC):
             raise FileNotFoundError(f"Please check your path, \
                 {fileName} not found.")
 
+    def max(self, argwhere=False):
+        """Returns the max value of the d array.
+        If c (coordinates) is set to True, returns a tuple containing
+        (min(d), c where d is min)
 
-def add(*objs):
-    print(*objs)
+        Parameters
+        ----------
+        c : boolean
+        """
+
+        if argwhere is True:
+            _argmax = self.d.argmax()
+            _argmax_unravel = np.unravel_index(_argmax, self.d.shape)
+
+            _res = [getattr(self, i)[j] for (i,j) in zip("xyzvw"[:self.d.ndim],
+                                                         _argmax_unravel)]
+            _res.append(self.d.max())
+            return tuple(_res)
+        return min(self.d)
+
+    def min(self, argwhere=False):
+        """Returns the min value of the d array.
+        If c (coordinates) is set to True, returns a tuple containing
+        (min(d), c where d is min)
+
+        Parameters
+        ----------
+        c : boolean
+        """
+
+        if argwhere is True:
+            _argmin = self.d.argmin()
+            _argmin_unravel = np.unravel_index(_argmin, self.d.shape)
+
+            _res = [getattr(self, i)[j] for (i,j) in zip("xyzvw"[:self.d.ndim],
+                                                         _argmin_unravel)]
+            _res.append(self.d.min())
+            return tuple(_res)
+        return min(self.d)
+
+    def mean(self, *args, **kwargs):
+        return self.d.mean(*args, **kwargs)
+
+    def median(self, *args, **kwargs):
+        return self.d.median(*args, **kwargs)
 
 
 ############################################################################
@@ -90,12 +133,11 @@ def add(*objs):
 ############################################################################
 class mesh1d(np.ndarray):
     """
-    Defines a basis class for array/unit/label based objects
-
+    Basic subclass of `numpy.ndarray` with `unit` and `label`attributes.
 
     Parameters
     ----------
-    data : array
+    d : array
            Data in form of a python array or numpy.array
 
     label : string, optional
@@ -111,7 +153,7 @@ class mesh1d(np.ndarray):
 
         In [1]: from lerp import mesh1d
 
-        In [2]: x = mesh1d(data=[100, 600, -200, 300], label="Current", unit="A")
+        In [2]: x = mesh1d(d=[100, 600, -200, 300], label="Current", unit="A")
 
         In [3]: print("Max : {0} {1.unit}".format(x.max(), x))
         Max : 600 A
@@ -128,60 +170,57 @@ class mesh1d(np.ndarray):
 
         # Element added to x, inplace and sorting
          In [7]: x.push( [250, 400 ], sort=True)
-        Out[7]: mesh1d(data=[-200,100,250,300,400,600], label=Current, unit=A)
+        Out[7]: mesh1d(d=[-200,100,250,300,400,600], label=Current, unit=A)
 
         # Addition, in place
         In [8]: x += 900
 
         In [9]: x
-        Out[9]: mesh1d(data=[700,1000,1200,1500], label=Current, unit=A)
+        Out[9]: mesh1d(d=[700,1000,1200,1500], label=Current, unit=A)
 
         # Slicing
         In [10]: x[2]
         Out[10]: 1200
 
         In [11]: x[1:3]
-        Out[11]: mesh1d(data=[1000,1200], label="Current", unit="A")
+        Out[11]: mesh1d(d=[1000,1200], label="Current", unit="A")
 
 
     """
 
-    def __new__(cls, data=None, label=None, unit=None):
+    def __new__(cls, d=[], label=None, unit=None):
         # We first cast to be our class type
         # np.asfarray([], dtype='float64')
         @singledispatch
         def myArray(o):
-            if o is None:
-                o = []
+            #if o is None:
+            #    o = []
             # Will call directly __array_finalize__
-            obj = np.asarray(o).flatten().view(cls)
+            obj = np.asarray(o).ravel().view(cls)
             obj.label = label
             obj.unit = unit
             return obj
 
         @myArray.register(mesh1d)
         def _(o):
+            # Override label and unit if given as parameter
             if label is not None:
                 o.label = label
             if unit is not None:
                 o.unit = unit
             return o
 
-        return myArray(data)
+        return myArray(d)
 
-    # see InfoArray.__array_finalize__ for comments
     def __array_finalize__(self, obj):
-        """
-
-        :type obj: object
-        """
+        # https://docs.scipy.org/doc/numpy/reference/arrays.classes.html
         self.unit = getattr(obj, 'unit', None)
         self.label = getattr(obj, 'label', None)
 
     def __repr__(self):
         return '{0}, label="{1.label}", unit="{1.unit}")'. \
             format(np.array_repr(self, precision=2).replace(")", ""). \
-                   replace("(", "(data="), self)
+                   replace("(", "(d="), self)
 
     def _repr_html_(self):
 
@@ -240,18 +279,17 @@ class mesh1d(np.ndarray):
             return False
 
     def apply(self, f, inplace=False):
-        """Apply a function to the complete mesh1d data
+        """Apply a function to the complete `mesh1d` data
 
         Parameters
         ----------
         f : function
         inplace: boolean
-            True if yA.x.pushou want the mesh1d to be modified inplace
+            True for modifying the `mesh1d` inplace
 
         Returns
         -------
-        Nothing or mesh1d
-            Depends if inplace is set to False or True
+        `mesh1d` if inplace is set to False
 
         """
         res = self.__class__(np.apply_along_axis(f, 0, np.array(self)),
@@ -357,6 +395,8 @@ class mesh1d(np.ndarray):
         return item in np.asarray(self)
 
 
+
+
 ############################################################################
 # CLASSE mesh2d
 ############################################################################
@@ -371,8 +411,11 @@ class mesh2d(mesh):
     x : numpy.array or mesh1d
         1D array of x-coordinates of the mesh on which to interpolate
 
-    d : numpy.array or mesh1d
+    d : numpy.array
         1D array of d-coordinates of the mesh on result to be interpolated
+    options : dict [optiona]
+    clipboard : boolean [optional]
+                when set, override any instantiation with x and d
 
     fileName : string
         Complete address to csv-file, further
@@ -389,20 +432,25 @@ class mesh2d(mesh):
                  x_label=None, x_unit=None,
                  label=None, unit=None,
                  clipboard=False, extrapolate=True,
+                 contiguous=False,
                  **kwargs):
         """
         """
 
-        if clipboard is True:
-            self.read_clipboard()
-        else:
-            self.x = mesh1d(x, label=x_label, unit=x_unit)
-            self._d = mesh1d(d, label=label, unit=unit)
-
+        # Options
         self.options = {}
         self.options['extrapolate'] = extrapolate
+
         if 'options' in kwargs:
             self.options = {**kwargs['options'], **self.options}
+
+        if clipboard is True:
+            self.read_clipboard()
+        elif contiguous is True:
+            self._recArray = np.rec(x,d)
+        else:
+            self._x = mesh1d(x, label=x_label, unit=x_unit)
+            self._d = np.array(d).ravel()
 
         self._gradient = None
         self._sort()
@@ -411,6 +459,14 @@ class mesh2d(mesh):
         self._steps.__call__ = self.step
         self.label = label
         self.unit = unit
+
+    @property
+    def x(self):
+        return self._x
+
+    @x.setter
+    def x(self, obj):
+        self._x = self._x.__class__(obj, **self._x.__dict__)
 
     @property
     def d(self):
@@ -446,20 +502,22 @@ class mesh2d(mesh):
 
         In [2]: A
         Out[2]:
-        x = mesh1d(data=[1, 2, 3], label="None", unit="None")
-        d = mesh1d(data=[ 0.5,  6. ,  9. ], label="None", unit="None")
+        x = mesh1d(d=[1, 2, 3], label="None", unit="None")
+        d = mesh1d(d=[ 0.5,  6. ,  9. ], label="None", unit="None")
 
         In [3]: A + 10
         Out[3]:
-        x = mesh1d(data=[1, 2, 3], label="None", unit="None")
-        d = mesh1d(data=[ 10.5,  16. ,  19. ], label="None", unit="None")
+        x = mesh1d(d=[1, 2, 3], label="None", unit="None")
+        d = mesh1d(d=[ 10.5,  16. ,  19. ], label="None", unit="None")
 
         In [4]: B = mesh2d([0.4, 3, 6], [0.5, 6, 9.0])
 
         In [5]: A + B
         Out[5]:
-        x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
-        d = mesh1d(data=[ -2.3 ,   2.27,   9.88,  15.  ,  27.  ], label="None", unit="None")
+        x = mesh1d(d=[ 0.4,  1. ,  2. ,  3. ,  6. ],
+                   label="None", unit="None")
+        d = mesh1d(d=[ -2.3 ,   2.27,   9.88,  15.  ,  27.  ],
+                   label="None", unit="None")
 
         In [6]: A.options
         Out[6]: {'extrapolate': True}
@@ -468,8 +526,10 @@ class mesh2d(mesh):
 
         In [8]: A + B
         Out[8]:
-        x = mesh1d(data=[ 0.4,  1. ,  2. ,  3. ,  6. ], label="None", unit="None")
-        d = mesh1d(data=[  1.  ,   2.27,   9.88,  15.  ,  18.  ], label="None", unit="None")
+        x = mesh1d(d=[ 0.4,  1. ,  2. ,  3. ,  6. ],
+                   label="None", unit="None")
+        d = mesh1d(d=[  1.  ,   2.27,   9.88,  15.  ,  18.  ],
+                   label="None", unit="None")
 
         """
         new_args = deepcopy(self.__dict__)
@@ -485,9 +545,6 @@ class mesh2d(mesh):
             logger.warning("Adding {} to {} failed".format(
                 obj.__class__.__name__,
                 self.__class__.__name__))
-
-    def __sub__(self, obj):
-        return self.__add__(-obj)
 
     def __mul__(self, obj):
         """
@@ -542,7 +599,7 @@ class mesh2d(mesh):
         if isinstance(i, Number):
             return (self.x[i], self.d[i])
         else:
-            return self.__class__(x=self.x[i], d=self.d[i])
+            return self.__class__(x=self.x[i], d=self.d[i], **self.__class__.__dict__)
 
     def __iter__(self):
         return zip(self.x, self.d)
@@ -714,41 +771,6 @@ class mesh2d(mesh):
         Checked
         """
         return self[~np.isnan(self.x)]
-
-    def min(self, x=False):
-        """Returns the min value of the d-axis.
-        If x is set to True, returns a tuple containing
-        (min(d), x where d is min)
-
-        Parameters
-        ----------
-        x : boolean
-        """
-        if x is True:
-            _x = self.d.argmin()
-            return (self.x[_x], self.d[_x])
-        return min(self.d)
-
-    def max(self, x=False):
-        """Returns the max value of the d-axis.
-        If x is set to True, returns a tuple containing
-        (max(d), x where d is max)
-
-        Parameters
-        ----------
-        x : boolean
-        """
-        if x is True:
-            _x = self.d.argmax()
-            return (self.x[_x], self.d[_x])
-        else:
-            return max(self.d)
-
-    def mean(self, *args, **kwargs):
-        return self.d.mean(*args, **kwargs)
-
-    def median(self, *args, **kwargs):
-        return self.d.median(*args, **kwargs)
 
     def interpolate(self, x, assume_sorted=False, *args, **kwargs):
         """Purpose of this method is to return a linear interpolation
@@ -992,27 +1014,6 @@ class mesh2d(mesh):
     def difff(self):
         return np.diff(self.d) / np.diff(self.x)
 
-
-# Define a MAP object<br/>
-# @brief The class can be instanced CR.MAP(x, Y, W):
-#      - either with a tuple a data (x, Y, W)
-#      - either by parsing a label in a file
-#
-# @param x           x data of the MAP
-# @param Y           Y data of the MAP
-# @param W            W data of the MAP
-#
-# The form of the data should look like: <br/>
-# @verbatim
-#       (y y y ... y)
-#  (x)  (W W W ... W)
-#  (x)  (W W W ... W)
-# (...) (W W W ... W)
-#  (x)  (W W W ... W)
-#  (x)  (W W W ... W)
-# @endverbatim
-
-
 ############################################################################
 # CLASSE mesh3d
 ############################################################################
@@ -1077,9 +1078,6 @@ class mesh3d(mesh):
                 W[i][j] = self(x, y) + other(x, y)
 
         return self.__class__(X, Y, W, self.label, self.unit)
-
-    def __sub__(self, obj):
-        return self.__add__(-obj)
 
     def __mul__(self, obj):
         """
@@ -1148,7 +1146,7 @@ class mesh3d(mesh):
         for (i, j), elem in np.ndenumerate(self.d):
             yield (self.x[i], self.y[j], (i, j), elem)
 
-    def __init__(self, x=None, y=None, w=None,
+    def __init__(self, x=None, y=None, d=None,
                  x_label=None, x_unit=None,
                  y_label=None, y_unit=None,
                  label=None, unit=None,
@@ -1183,11 +1181,8 @@ class mesh3d(mesh):
         self._y = mesh1d(y, label=y_label, unit=y_unit) if "_y" not in kwargs \
             else kwargs["_y"]
 
-        if "d" not in kwargs:
-            self.d = np.empty((self.x.size, self.y.size)) if w is None else \
-                np.asfarray(w, dtype='float64')
-        else:
-            self.d = kwargs["d"]
+        self.d = np.empty((self.x.size, self.y.size)) if d is None else \
+                np.asfarray(d, dtype='float64')
 
         if clipboard is True:
             self.read_clipboard()
@@ -1211,9 +1206,7 @@ class mesh3d(mesh):
         self._y = self._y.__class__(obj, **self._y.__dict__)
 
     def __neg__(self):
-        """
-        """
-        return self.__class__(x=self._x, y=self._y, w=-self.d,
+        return self.__class__(x=self._x, y=self._y, d=-self.d,
                               label=self.label, unit=self.unit)
 
     def _repr_html_(self):
@@ -1304,9 +1297,10 @@ class mesh3d(mesh):
         try:
             if len(sl) == 2:
                 slx, sly = sl
-                if isinstance(slx, slice) or isinstance(slx, list) or isinstance(slx, np.ndarray):
+                # slice, list, np.ndarray
+                if hasattr(slx, "__getitem__"):
                     isXslice = len(self.x[slx]) > 1 or False
-                if isinstance(sly, slice) or isinstance(sly, list) or isinstance(sly, np.ndarray):
+                if hasattr(sly, "__getitem__"):
                     isYslice = len(self.y[sly]) > 1 or False
         except:
             slx, sly = sl, slice(None, None, None)
@@ -1316,7 +1310,7 @@ class mesh3d(mesh):
 
         if isXslice and isYslice:
             return self.__class__(x=self._x[slx], y=self._y[sly],
-                                  w=self.d[slx, sly], label=self.label,
+                                  d=self.d[slx, sly], label=self.label,
                                   unit=self.unit, extrapolate=self.options['extrapolate'])
         elif not isXslice and isYslice:
             return _get_m2d(self._y[sly], self.d[slx, sly])
@@ -1423,7 +1417,7 @@ class mesh3d(mesh):
                                                          kx=1, ky=1)
 
             return self.__class__(x=x, y=y,
-                                  w=[fitpack.bisplev(_x, _y, (tx, ty, c, 1, 1)) \
+                                  d=[fitpack.bisplev(_x, _y, (tx, ty, c, 1, 1)) \
                                      for _x, _y in product(x, y)],
                                   label=self.label, unit=self.unit)
 
@@ -1477,14 +1471,14 @@ class mesh3d(mesh):
             y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
 
             return self.__class__(x=x, y=y,
-                                  w=[self.extrapolate(_x, _y) for _x, _y in product(x, y)],
+                                  d=[self.extrapolate(_x, _y) for _x, _y in product(x, y)],
                                   label=self.label, unit=self.unit)
 
     def from_pandas(self, obj):
         self.__init__(x=obj.index.astype(float), x_label=self.x.label,
                       x_unit=self.x.unit, y=obj.columns.astype(float),
                       y_label=self.y.label, y_unit=self.y.unit,
-                      w=[np.array(obj.loc[_o]) for _o in obj.index],
+                      d=[np.array(obj.loc[_o]) for _o in obj.index],
                       label=self.label, unit=self.unit)
 
     # Plot MAP as PDF in filename
@@ -1567,7 +1561,7 @@ class mesh3d(mesh):
 
     @property
     def T(self):
-        return self.__class__(x=self._y, y=self._x, w=self.d.T,
+        return self.__class__(x=self._y, y=self._x, d=self.d.T,
                               label=self.label, unit=self.unit,
                               **self.options)
 
@@ -1575,10 +1569,9 @@ class mesh3d(mesh):
     def diff(self, axis=0, n=1):
         return self.__class__(x=np.diff(self._x, n=n) if axis == 0 else self._x,
                               y=np.diff(self._y, n=n) if axis == 1 else self._y,
-                              w=np.diff(self.d, axis=axis, n=n),
+                              d=np.diff(self.d, axis=axis, n=n),
                               label=self.label, unit=self.unit,
                               sort=False)
-
 
 ############################################################################
 # CLASSE mesh4d
@@ -1642,9 +1635,6 @@ class mesh4d(mesh):
                               d=self.d + other, label=self.label,
                               unit=self.unit, **self.options)
 
-    def __sub__(self, obj):
-        return self.__add__(-obj)
-
     def __neg__(self):
         """
         """
@@ -1680,7 +1670,7 @@ class mesh4d(mesh):
                           extrapolate=self.options['extrapolate'])
 
         def _get_m3d(slx, sly, w):
-            return mesh3d(x=slx, y=sly, w=w,
+            return mesh3d(x=slx, y=sly, d=w,
                           label=self.label, unit=self.unit,
                           extrapolate=self.options['extrapolate'])
 
@@ -1929,7 +1919,6 @@ class mesh4d(mesh):
             raise FileNotFoundError(f"Please check your path, \
                 {fileName} not found")
 
-
 ############################################################################
 # CLASSE mesh5d
 ############################################################################
@@ -2003,9 +1992,6 @@ class mesh5d(mesh):
                               v=self._v,
                               d=self.d + other, label=self.label,
                               unit=self.unit, **self.options)
-
-    def __sub__(self, obj):
-        return self.__add__(-obj)
 
     def __neg__(self):
         """
@@ -2081,7 +2067,6 @@ class mesh5d(mesh):
         except:
             raise FileNotFoundError(f"Please check your path, \
             {fileName} not found.")
-
 
 ############################################################################
 # CLASSE polymesh2d
@@ -2182,9 +2167,7 @@ class polymesh2d(object):
     def resample(self, x):
         return mesh2d(x=mesh1d(x,
                                label=self.x.label, unit=self.x.unit),
-                      y=mesh1d(self.p(x),
-                               label=self.y.label, unit=self.y.unit))
-
+                      d=self.p(x), label=self.y.label, unit=self.y.unit)
 
 ############################################################################
 # CLASSE polymesh3d
@@ -2230,12 +2213,12 @@ class polymesh3d(object):
 
         # This will be some pre-determined size
         shape = (len(self.x), len(self.y))
-        self._w = np.zeros(shape, dtype=np.float64)
+        self._d = np.zeros(shape, dtype=np.float64)
 
         for _x, _P in enumerate(self.p):
-            self._w[_x, -len(_P.p.p) - 1:] = np.array(_P.p.p.coeffs)
+            self._d[_x, -len(_P.p.p) - 1:] = np.array(_P.p.p.coeffs)
 
-        self._m3d = mesh3d(x=self.x, y=self.y, w=self._w,
+        self._m3d = mesh3d(x=self.x, y=self.y, d=self._d,
                            label=self.z.label,
                            unit=self.z.label)
 
