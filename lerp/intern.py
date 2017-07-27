@@ -67,15 +67,15 @@ def myPlot(func):
     """
     Permet de tracer un diagramme
     """
-    
+
     def wrapper(data, *args, **kwargs):
         import matplotlib.pyplot as plt
         from lerp import mesh1d, mesh2d
         # --------------------------------------------------------------------
         # Options générales
-        # --------------------------------------------------------------------       
+        # --------------------------------------------------------------------
         rc = kwargs.pop('rc') if 'rc' in kwargs else False
-        
+
         if rc is False:
             plt.style.use('ggplot' if 'ggplot' in plt.style.available
                           else 'default')
@@ -91,7 +91,7 @@ def myPlot(func):
         dX = kwargs.pop('dx') if 'dx' in kwargs else None
         dY = kwargs.pop('dy') if 'dy' in kwargs else None
         yaxis = kwargs.pop('yaxis') if 'yaxis' in kwargs else 'y1'
-                
+
         if isinstance(data, mesh1d):
             Y = data
             X = mesh1d(np.arange(1, Y.size+1), "Support point", "-")
@@ -100,7 +100,7 @@ def myPlot(func):
             Y = data.d
         else:
             raise Exception("No data to plot")
-        
+
         if len(plt.get_fignums()) > 0 and not newfigure:
             fig = plt.gcf()
             _axe_tmp = plt.gca()
@@ -116,15 +116,15 @@ def myPlot(func):
             ax = fig.add_subplot(111)
 
         func(data, *args, **kwargs)
-        
+
         # --------------------------------------------------------------------
         # Légende des axes
         # --------------------------------------------------------------------
         if X.label is not None:
-            plt.xlabel(u"{0.label} [{0.unit}]".format(X))
+            plt.xlabel(f"{X.label} [{X.unit}]")
 
-        if Y.label is not None:
-            plt.ylabel(u"{0.label} [{0.unit}]".format(Y))
+        if data.label is not None:
+            plt.ylabel(f"{data.label} [{data.unit}]")
 
         # --------------------------------------------------------------------
         # Tracé du graphe
@@ -140,8 +140,6 @@ def myPlot(func):
             dY = np.ceil(float(np.abs(uY / 8)))
         else:
             dY = float(dY)
-            
-        
 
         # TODO : corriger
         # _myGrid(dX, dY)
@@ -164,11 +162,11 @@ def myPlot(func):
 #             _y0 = np.sign(_ylim[0]) * dY * \
 #             np.ceil(np.abs(np.float(_ylim[0]))/dY) \
 #             if np.float(_ylim[0]) % dY != 0 else _ylim[0]
-#             
+#
 #             _y1 = np.sign(_ylim[1]) * dY * \
 #             np.ceil(np.abs(np.float(_ylim[1]))/dY) \
 #             if np.float(_ylim[1]) % dY != 0 else _ylim[1]
-#             
+#
 #             print(_y0, _y1)
 #             plt.ylim(_y0, _y1)
 
@@ -183,4 +181,4 @@ def myPlot(func):
             plt.savefig(fileName, bbox_inches='tight')
 
         return myPlt
-    return wrapper    
+    return wrapper

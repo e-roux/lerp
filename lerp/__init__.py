@@ -438,8 +438,7 @@ class mesh2d(mesh):
         """
 
         # Options
-        self.options = {}
-        self.options['extrapolate'] = extrapolate
+        self.options = dict('extrapolate' = extrapolate)
 
         if 'options' in kwargs:
             self.options = {**kwargs['options'], **self.options}
@@ -454,9 +453,7 @@ class mesh2d(mesh):
 
         self._gradient = None
         self._sort()
-        self._steps = deepcopy(self)
-        # Warning : monkey patching
-        self._steps.__call__ = self.step
+
         self.label = label
         self.unit = unit
 
@@ -542,9 +539,7 @@ class mesh2d(mesh):
             new_args['d'] = [_y1 + _y2 for _y1, _y2 in zip(self(new_args['x']), obj(new_args['x']))]
             return self.__class__(**new_args)
         else:
-            logger.warning("Adding {} to {} failed".format(
-                obj.__class__.__name__,
-                self.__class__.__name__))
+            logger.warning(f"Adding {obj.__class__.__name__} to {self.__class__.__name__} failed")
 
     def __mul__(self, obj):
         """
@@ -588,9 +583,7 @@ class mesh2d(mesh):
             new_args['d'] = [self(_x) / obj(_x) for _x in new_args['x']]
             return self.__class__(**new_args)
         else:
-            logger.warning("Multiplyng {} to {} failed".format(
-                obj.__class__.__name__,
-                self.__class__.__name__))
+            logger.warning(f"Multiplyng {obj.__class__.__name__} to {self.__class__.__name__} failed")
 
     def __neg__(self):
         return self.__class__(x=self.x, d=-self.d)
@@ -599,7 +592,9 @@ class mesh2d(mesh):
         if isinstance(i, Number):
             return (self.x[i], self.d[i])
         else:
-            return self.__class__(x=self.x[i], d=self.d[i], **self.__class__.__dict__)
+            return self.__class__(x=self.x[i], d=self.d[i])#,
+            {key:value for }
+                                  #**self.__class__.__dict__)
 
     def __iter__(self):
         return zip(self.x, self.d)
@@ -648,12 +643,13 @@ class mesh2d(mesh):
             else:
                 tr = ET.SubElement(tbody, 'tr')
                 _e = getattr(self, _v)
+                label = self.x.label if _v == "x" else self.label
+                unit = self.x.unit if _v == "x" else self.unit
                 td = ET.SubElement(tr, 'td')
                 b = ET.SubElement(td, 'b')
-                b.text = _e.label if _e.label is not None else "Label"
+                b.text = label if label is not None else "Label"
                 span = ET.SubElement(td, 'span')
-                span.text = " [{}]".format(_e.unit if _e.unit is
-                                                      not None else "unit")
+                span.text = " [{}]".format(unit if unit is not None else "unit")
 
                 for _node in islice(_e, 15):
                     ET.SubElement(tr, 'td').text = str(_node)
@@ -750,12 +746,16 @@ class mesh2d(mesh):
             if inplace is True:
                 self.d.apply(f, inplace)
             else:
-                return mesh2d(self.x, self.d.apply(f))
+                return self.__class__(x=self.x, d=self.d.apply(f),
+                                      **self.__dict__)
+                # return mesh2d(self.x, self.d.apply(f))
         elif axis == "x":
             if inplace is True:
                 self.x.apply(f, inplace)
             else:
-                return mesh2d(self.x.apply(f), self.d)
+                return self.__class__(x=self.x.apply(f), d=self.d,
+                                      **self.__dict__)
+                # return mesh2d(self.x.apply(f), self.d)
         else:
             print("apply used on non existing axis")
 
@@ -825,6 +825,10 @@ class mesh2d(mesh):
 
     @property
     def steps(self):
+        self._steps = deepcopy(self)
+        # Warning : monkey patching
+        self._steps.__call__ = self.step
+
         return self._steps
 
     #    @steps.setter
@@ -881,7 +885,7 @@ class mesh2d(mesh):
     def polyfit(self, degree=2):
         return polymesh2d(p=np.polyfit(self.x, self.d, degree),
                           x_label=self.x.label, x_unit=self.x.unit,
-                          y_label=self.d.label, y_unit=self.d.unit)
+                          label=self.label, unit=self.unit)
 
     def read_clipboard(self):
 
@@ -892,7 +896,7 @@ class mesh2d(mesh):
                              in enumerate(_res) if not i % 2],
                             self.x.label, self.x.unit)
             self.d = mesh1d([float(a) for (i, a) in enumerate(_res) if i % 2],
-                            self.d.label, self.d.unit)
+                            self.label, self.unit)
 
         def _en_ligne(s):
             # En colonne
@@ -901,7 +905,7 @@ class mesh2d(mesh):
                 self.x = mesh1d([float(a) for a in s[0].split('\t')],
                                 self.x.label, self.x.unit)
                 self.d = mesh1d([float(a) for a in s[1].split('\t')],
-                                self.d.label, self.d.unit)
+                                self.label, self.unit)
 
         def get_clipboard():
             import win32clipboard
@@ -976,9 +980,9 @@ class mesh2d(mesh):
             # writes header
 
             # writes channel names
-            writer.writerow([self.x.label, self.d.label])
+            writer.writerow([self.x.label, self.label])
             # writes units
-            writer.writerow([self.x.unit, self.d.unit])
+            writer.writerow([self.x.unit, self.unit])
 
             buf = np.vstack([self.x.transpose(), np.round(self.d.transpose(),
                                                           nbreDecimales)])
@@ -2076,10 +2080,12 @@ class polymesh2d(object):
     """
 
     def __init__(self, p=None, x_label=None, x_unit=None,
-                 y_label=None, y_unit=None):
+                 label=None, unit=None):
 
         self.x = axis(label=x_label, unit=x_unit)
-        self.y = axis(label=y_label, unit=y_unit)
+        self.label = label
+        self.unit = unit
+
         self.p = np.poly1d(p)
 
     def __call__(self, x):
@@ -2087,7 +2093,7 @@ class polymesh2d(object):
             return self.p(x)
         else:
             return mesh2d(x=mesh1d(x, self.x.label, self.x.unit),
-                          d=mesh1d(self.p(x), self.d.label, self.d.unit))
+                          d=self.p(x), label=self.label, unit=self.unit)
 
     def plot(self, *pargs, **kwargs):
         import matplotlib.pyplot as plt
@@ -2112,9 +2118,9 @@ class polymesh2d(object):
         if kwargs['dx'] is None:
             kwargs['dx'] = np.ptp(x) / 14
         if kwargs['ylim'] is None:
-            kwargs['ylim'] = (np.min(data2plot.y), np.max(data2plot.y))
+            kwargs['ylim'] = (np.min(data2plot.d), np.max(data2plot.d))
         if kwargs['dy'] is None:
-            kwargs['dy'] = np.ptp(data2plot.y) / 12
+            kwargs['dy'] = np.ptp(data2plot.d) / 12
 
         self(x).plot(*pargs, **kwargs)
 
@@ -2165,9 +2171,8 @@ class polymesh2d(object):
         return self._polyprint(html=True)
 
     def resample(self, x):
-        return mesh2d(x=mesh1d(x,
-                               label=self.x.label, unit=self.x.unit),
-                      d=self.p(x), label=self.y.label, unit=self.y.unit)
+        return mesh2d(x=mesh1d(x, label=self.x.label, unit=self.x.unit),
+                      d=self.p(x), label=self.label, unit=self.unit)
 
 ############################################################################
 # CLASSE polymesh3d
