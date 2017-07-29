@@ -438,7 +438,7 @@ class mesh2d(mesh):
         """
 
         # Options
-        self.options = dict('extrapolate' = extrapolate)
+        self.options = {'extrapolate' : extrapolate}
 
         if 'options' in kwargs:
             self.options = {**kwargs['options'], **self.options}
@@ -593,7 +593,6 @@ class mesh2d(mesh):
             return (self.x[i], self.d[i])
         else:
             return self.__class__(x=self.x[i], d=self.d[i])#,
-            {key:value for }
                                   #**self.__class__.__dict__)
 
     def __iter__(self):
