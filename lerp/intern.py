@@ -29,11 +29,12 @@ def deprecated(func):
     >>> f()
     f is deprecated
     """
-    count = [0]
+    count = 0
     def wrapper(*args, **kwargs):
-        count[0] += 1
-        if count[0] == 1:
-            logger.warning("{}() is deprecated".format(func.__name__))
+        nonlocal count
+        count += 1
+        if count == 1:
+            logger.warning(f"{func.__name__} is deprecated")
         return func(*args, **kwargs)
     return wrapper
 

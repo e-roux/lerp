@@ -127,7 +127,6 @@ class mesh(abc.ABC):
     def median(self, *args, **kwargs):
         return self.d.median(*args, **kwargs)
 
-
 ############################################################################
 # CLASSE mesh1d
 ############################################################################
@@ -393,9 +392,6 @@ class mesh1d(np.ndarray):
 
     def __contains__(self, item):
         return item in np.asarray(self)
-
-
-
 
 ############################################################################
 # CLASSE mesh2d
@@ -816,9 +812,9 @@ class mesh2d(mesh):
         """
 
         i = np.searchsorted(self.x, x)
-        condlist = [np.in1d(x, self.x), i > 1]
-        choicelist = [i, i - 1]
-        i = np.select(condlist, choicelist)
+        condList = [np.in1d(x, self.x), i > 1]
+        choiceList = [i, i - 1]
+        i = np.select(condList, choiceList)
 
         return self.d[i]
 
@@ -859,8 +855,8 @@ class mesh2d(mesh):
     def _extrapolate(self, x, *args, **kwargs):
         """
         """
-        if 'step' in kwargs and kwargs['step'] is True:
-            return self.step(x, **kwargs)
+        #if 'step' in kwargs and kwargs['step'] is True:
+        #    return self.step(x, **kwargs)
 
         if x <= self.x[0]:
             res = self.d[0] + (x - self.x[0]) * \
