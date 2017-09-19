@@ -192,7 +192,7 @@ class mesh1d(np.ndarray):
         # np.asfarray([], dtype='float64')
         @singledispatch
         def myArray(o):
-            #if o is None:
+            # if o is None:
             #    o = []
             # Will call directly __array_finalize__
             obj = np.asarray(o).ravel().view(cls)
@@ -218,7 +218,7 @@ class mesh1d(np.ndarray):
 
     def __repr__(self):
         return '{0}, label="{1.label}", unit="{1.unit}")'. \
-            format(np.array_repr(self, precision=2).replace(")", ""). \
+            format(np.array_repr(self, precision=2).replace(")", "").
                    replace("(", "(d="), self)
 
     def _repr_html_(self):
@@ -233,7 +233,7 @@ class mesh1d(np.ndarray):
         b.text = self.label if self.label is not None else "Label"
         span = ET.SubElement(pre, 'span')
         span.text = " [{}]".format(self.unit if self.unit is
-                                                not None else "unit")
+                                   not None else "unit")
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
@@ -244,7 +244,8 @@ class mesh1d(np.ndarray):
             tbody = ET.SubElement(table, 'tbody')
             for _i in range(2):
                 if _i == 0:
-                    tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
+                    tr = ET.SubElement(tbody, 'tr',
+                                       {'style': 'border: 0px solid'})
                     for _node in islice(np.arange(len(self)), 15):
                         ET.SubElement(tr, 'th',
                                       {'style': _html_style['th']}).text = str(_node)
@@ -278,7 +279,8 @@ class mesh1d(np.ndarray):
             return False
 
     def apply(self, f, inplace=False):
-        """Apply a function to the complete `mesh1d` data
+        """
+        Apply a function to the complete `mesh1d` data
 
         Parameters
         ----------
@@ -289,7 +291,6 @@ class mesh1d(np.ndarray):
         Returns
         -------
         `mesh1d` if inplace is set to False
-
         """
         res = self.__class__(np.apply_along_axis(f, 0, np.array(self)),
                              **self.__dict__)
@@ -315,8 +316,6 @@ class mesh1d(np.ndarray):
 
     def mean(self, *args, **kwargs):
         """
-        mean
-        ^^^^^^^^
 
         Returns
         -------
@@ -333,7 +332,8 @@ class mesh1d(np.ndarray):
         # _plot(y=self)
 
     def pop(self, axis=0):
-        """Pop an element of the array.
+        """
+        Pop an element of the array.
 
         Parameters
         ----------
@@ -351,7 +351,8 @@ class mesh1d(np.ndarray):
         return self.__class__(self[:-1], **self.__dict__), self[-1]
 
     def push(self, obj, unique=True, return_index=False):
-        """Pushes an element to an array.
+        """
+        Pushes an element to an array.
 
         Notes
         -----
@@ -370,7 +371,6 @@ class mesh1d(np.ndarray):
         Notes
         -----
         As instance of numpy array, the elements are not added inplace
-
         """
         # Test if self is not empty array
         try:
