@@ -13,7 +13,7 @@ Content
 
 .. toctree::
     :maxdepth: 1
-    
+
     _src/lerp.ipynb
     _src/mesh
     _src/polymesh
@@ -24,5 +24,6 @@ Indices and tables
 --------------------
 
 * :ref:`genindex`
+
 .. * :ref:`modindex`
 .. * :ref:`search`
