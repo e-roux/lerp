@@ -1,7 +1,12 @@
-lerp : Lookup Table 
+lerp : Lookup Table
 =======================
 
+.. |docs| image:: https://readthedocs.org/projects/lerp/badge
+    :alt: Documentation Status
+    :target: https://lerp.readthedocs.io/en/latest/?badge=latest
+
 |docs|
+
 
 ``lerp`` aims to supply lookup table facility in python on top of numpy.
 
@@ -9,17 +14,12 @@ lerp : Lookup Table
 .. note::
     This project is in early alpha phase.
 
-.. |docs| image:: https://readthedocs.org/projects/lerp/badge/?version=latest
-    :alt: Documentation Status
-    :scale: 100%
-    :target: https://lerp.readthedocs.io/en/latest/?badge=latest
 
 Documentation (and example of use):
     http://lerp.readthedocs.io/
-    
+
 Source code repository (and issue tracker):
     https://github.com/gwin-zegal/lerp
-    
-License:
-    MIT -- see the file ``LICENSE`` for details.       
 
+License:
+    MIT -- see the file ``LICENSE`` for details.
