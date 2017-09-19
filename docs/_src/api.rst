@@ -10,7 +10,6 @@ mesh2d
 ------
 
 .. autosummary::
-   :toctree: generated/
 
    mesh2d.apply
    mesh2d.push
@@ -40,7 +39,6 @@ mesh3d
 ------
 
 .. autosummary::
-   :toctree: generated/
 
    mesh3d.apply
    mesh3d.diff
@@ -61,7 +59,6 @@ mesh4d
 ------
 
 .. autosummary::
-   :toctree: generated/
 
    mesh4d.interpolate
    mesh4d.push
@@ -75,8 +72,6 @@ polymesh2d
 ----------
 
 .. autosummary::
-   :toctree: generated/
-
 
    polymesh2d.resample
 
@@ -85,7 +80,6 @@ polymesh3d
 ----------
 
 .. autosummary::
-   :toctree: generated/
 
    polymesh3d.resample
    polymesh3d.plot
