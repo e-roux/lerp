@@ -30,6 +30,7 @@ def deprecated(func):
     f is deprecated
     """
     count = 0
+
     def wrapper(*args, **kwargs):
         nonlocal count
         count += 1
@@ -63,6 +64,7 @@ def _myGrid(dx=None, dy=None):
 
         else:
             _ax.grid(0)
+
 
 def myPlot(func):
     """
@@ -133,7 +135,7 @@ def myPlot(func):
         myPlt = plt.plot(X, Y, *args, **kwargs)
 
         dX = np.ceil((float(X[-1])-float(X[0])) / 12)\
-        if dX is None else float(dX)
+            if dX is None else float(dX)
 
         if dY is None:
             uY = np.float(ylim[1]-ylim[0] if ylim is not None
