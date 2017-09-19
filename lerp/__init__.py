@@ -132,7 +132,7 @@ class mesh(abc.ABC):
 ############################################################################
 class mesh1d(np.ndarray):
     """
-    Basic subclass of `numpy.ndarray` with `unit` and `label`attributes.
+    Basic subclass of `numpy.ndarray` with `unit` and `label` attributes.
 
     Parameters
     ----------
@@ -316,7 +316,6 @@ class mesh1d(np.ndarray):
 
     def mean(self, *args, **kwargs):
         """
-
         Returns
         -------
         Object mean
