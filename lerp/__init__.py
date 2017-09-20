@@ -64,17 +64,16 @@ class mesh(abc.ABC):
                 # so we do not have to specify it.
                 data = pickle.load(f)
             return data
-        except:
-            raise
-            # raise FileNotFoundError("Please check your path, {} not found".\
-            # format(fileName))
+        except OSError:
+            raise FileNotFoundError(f"Please check your path, \
+                {fileName} not found.")
 
     def to_pickle(self, fileName=None):
         try:
             fileName = os.path.normpath(fileName)
             with open(fileName, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-        except:
+        except OSError:
             raise FileNotFoundError(f"Please check your path, \
                 {fileName} not found.")
 
@@ -93,7 +92,7 @@ class mesh(abc.ABC):
             _argmax = self.d.argmax()
             _argmax_unravel = np.unravel_index(_argmax, self.d.shape)
 
-            _res = [getattr(self, i)[j] for (i,j) in
+            _res = [getattr(self, i)[j] for (i, j) in
                     zip("xyzvw"[:self.d.ndim], _argmax_unravel)]
             _res.append(self.d.max())
             return tuple(_res)
@@ -114,8 +113,8 @@ class mesh(abc.ABC):
             _argmin = self.d.argmin()
             _argmin_unravel = np.unravel_index(_argmin, self.d.shape)
 
-            _res = [getattr(self, i)[j] for (i,j) in zip("xyzvw"[:self.d.ndim],
-                                                         _argmin_unravel)]
+            _res = [getattr(self, i)[j] for (i, j) in
+                    zip("xyzvw"[:self.d.ndim], _argmin_unravel)]
             _res.append(self.d.min())
             return tuple(_res)
         return min(self.d)
@@ -125,6 +124,7 @@ class mesh(abc.ABC):
 
     def median(self, *args, **kwargs):
         return self.d.median(*args, **kwargs)
+
 
 ############################################################################
 # CLASSE mesh1d
@@ -2052,7 +2052,7 @@ class mesh5d(mesh):
                 # so we do not have to specify it.
                 data = pickle.load(f)
             return data
-        except:
+        except OSError:
             raise
             # raise FileNotFoundError("Please check your path, {} not found".\
             # format(fileName))
@@ -2062,16 +2062,16 @@ class mesh5d(mesh):
             fileName = os.path.normpath(fileName)
             with open(fileName, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
-        except:
+        except OSError:
             raise FileNotFoundError(f"Please check your path, \
             {fileName} not found.")
+
 
 ############################################################################
 # CLASSE polymesh2d
 ############################################################################
 class polymesh2d(object):
-    """
-    """
+    """Polynom based mash support."""
 
     def __init__(self, p=None, x_label=None, x_unit=None,
                  label=None, unit=None):
