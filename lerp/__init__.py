@@ -422,7 +422,7 @@ class mesh2d(mesh):
         * standard functions:func:`len()`, :func:`print()`
     """
 
-    def __init__(self, x=None, d=None,
+    def __init__(self, x=[], d=None,
                  x_label=None, x_unit=None,
                  label=None, unit=None,
                  clipboard=False, extrapolate=True,
@@ -1011,6 +1011,7 @@ class mesh2d(mesh):
     def difff(self):
         return np.diff(self.d) / np.diff(self.x)
 
+
 ############################################################################
 # CLASSE mesh3d
 ############################################################################
@@ -1570,6 +1571,7 @@ class mesh3d(mesh):
                               label=self.label, unit=self.unit,
                               sort=False)
 
+
 ############################################################################
 # CLASSE mesh4d
 ############################################################################
@@ -1917,6 +1919,7 @@ class mesh4d(mesh):
             raise FileNotFoundError(f"Please check your path, \
                 {fileName} not found")
 
+
 ############################################################################
 # CLASSE mesh5d
 ############################################################################
@@ -1925,7 +1928,7 @@ class mesh5d(mesh):
     """
 
     def __init__(self,
-                 x=None, y=None, z=None, v=None, d=None,
+                 x=[], y=[], z=[], v=[], d=None,
                  x_label=None, x_unit=None,
                  y_label=None, y_unit=None,
                  z_label=None, z_unit=None,
@@ -2073,7 +2076,7 @@ class mesh5d(mesh):
 class polymesh2d(object):
     """Polynom based mash support."""
 
-    def __init__(self, p=None, x_label=None, x_unit=None,
+    def __init__(self, p=[], x_label=None, x_unit=None,
                  label=None, unit=None):
 
         self.x = axis(label=x_label, unit=x_unit)
