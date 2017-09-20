@@ -2,3 +2,5 @@ numpy
 pandas
 matplotlib
 scipy
+watermark
+git+https://github.com/gwin-zegal/lerp.git
