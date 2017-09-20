@@ -7,13 +7,14 @@ import os.path
 import pickle
 from collections import namedtuple
 from copy import deepcopy
-from functools import singledispatch
 from itertools import islice, product
 from numbers import Number
 import numpy as np
 from numpy.core.multiarray import interp as interp2d
 from scipy.interpolate import dfitpack, fitpack
 from lerp.intern import deprecated, logger, myPlot
+
+# Using abc for practice purpose.
 import abc
 
 __version__ = "0.1aN"
@@ -27,25 +28,21 @@ axis = namedtuple('axis', ['label', 'unit'])
 axeConv = {_i: _j for (_i, _j) in enumerate('xyzvw')}
 
 _html_style = {
-    'th': 'color: LightGrey;border:0px none;text-align:center;background:none;',
+    'th': 'color:LightGrey;border:0px none;text-align:center;background:none;',
     'none': 'border:0px none;background:none;',
 }
 
 
 class mesh(abc.ABC):
-    """
+    """Docstring.
 
+    Parameters
+    ----------
     """
-    #@property
-    #@abc.abstractmethod
-    #def d(self):
-    #    """
-    #    :return:
-    #    """
 
     def __dir__(self):
-        return sorted([f for f in dir(self.__class__) \
-                       if not (f.startswith('_') | \
+        return sorted([f for f in dir(self.__class__)
+                       if not (f.startswith('_') |
                                ('deprecated' in repr(getattr(self, f))))],
                       key=lambda x: x.lower())
 
@@ -83,6 +80,7 @@ class mesh(abc.ABC):
 
     def max(self, argwhere=False):
         """Returns the max value of the d array.
+
         If c (coordinates) is set to True, returns a tuple containing
         (min(d), c where d is min)
 
@@ -95,14 +93,15 @@ class mesh(abc.ABC):
             _argmax = self.d.argmax()
             _argmax_unravel = np.unravel_index(_argmax, self.d.shape)
 
-            _res = [getattr(self, i)[j] for (i,j) in zip("xyzvw"[:self.d.ndim],
-                                                         _argmax_unravel)]
+            _res = [getattr(self, i)[j] for (i,j) in
+                    zip("xyzvw"[:self.d.ndim], _argmax_unravel)]
             _res.append(self.d.max())
             return tuple(_res)
         return min(self.d)
 
     def min(self, argwhere=False):
         """Returns the min value of the d array.
+
         If c (coordinates) is set to True, returns a tuple containing
         (min(d), c where d is min)
 
@@ -146,7 +145,7 @@ class mesh1d(np.ndarray):
            unit for plotting utility
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -183,11 +182,11 @@ class mesh1d(np.ndarray):
 
         In [11]: x[1:3]
         Out[11]: mesh1d(d=[1000,1200], label="Current", unit="A")
-
-
     """
 
     def __new__(cls, d=[], label=None, unit=None):
+        from functools import singledispatch
+
         # We first cast to be our class type
         # np.asfarray([], dtype='float64')
         @singledispatch
@@ -1051,12 +1050,12 @@ class mesh3d(mesh):
 
         if isinstance(other, mesh2d):
             if np.all(self._x == other.x):
-                _z = self.d + other.y.reshape(len(other), 1)
+                _d = self.d + other.d.reshape(len(other), 1)
             elif np.all(self._y == other.x):
-                _z = self.d + other.y.reshape(1, len(other))
+                _d = self.d + other.d.reshape(1, len(other))
             else:
                 raise TypeError("Object dimension not homogeneous in __add__.")
-            return self.__class__(self._x, self._y, _z,
+            return self.__class__(self._x, self._y, _d,
                                   self.label, self.unit, **self.options)
         if isinstance(other, Number):
             return self.__class__(self._x, self._y, self.d + other,
@@ -1069,13 +1068,13 @@ class mesh3d(mesh):
                    self._y.label,
                    self._y.unit)
 
-        W = np.zeros((X.size, Y.size))
+        D = np.zeros((X.size, Y.size))
 
         for (i, x) in enumerate(X):
             for (j, y) in enumerate(Y):
-                W[i][j] = self(x, y) + other(x, y)
+                D[i][j] = self(x, y) + other(x, y)
 
-        return self.__class__(X, Y, W, self.label, self.unit)
+        return self.__class__(X, Y, D, self.label, self.unit)
 
     def __mul__(self, obj):
         """
@@ -1144,7 +1143,7 @@ class mesh3d(mesh):
         for (i, j), elem in np.ndenumerate(self.d):
             yield (self.x[i], self.y[j], (i, j), elem)
 
-    def __init__(self, x=None, y=None, d=None,
+    def __init__(self, x=[], y=[], d=None,
                  x_label=None, x_unit=None,
                  y_label=None, y_unit=None,
                  label=None, unit=None,
@@ -1290,7 +1289,7 @@ class mesh3d(mesh):
         isYslice = False
 
         def _get_m2d(slx, slw):
-            return mesh2d(x=slx, y=mesh1d(slw, self.label, self.unit), extrapolate=self.options['extrapolate'])
+            return mesh2d(x=slx, d=mesh1d(slw, self.label, self.unit), extrapolate=self.options['extrapolate'])
 
         try:
             if len(sl) == 2:
@@ -1579,7 +1578,7 @@ class mesh4d(mesh):
     """
 
     def __init__(self,
-                 x=None, y=None, z=None, d=None,
+                 x=[], y=[], z=[], d=None,
                  x_label=None, x_unit=None,
                  y_label=None, y_unit=None,
                  z_label=None, z_unit=None,
@@ -1752,8 +1751,9 @@ class mesh4d(mesh):
 
         # From the axis number, get the corresponding
         # attribute x,y or z from self
-        wA = axeConv.get(axis)
+        wA = "_" + axeConv.get(axis)
         _axis = getattr(self, wA)
+        #print(wA, _axis)
 
         # TODO: check that every (x,y) from mesh3d to add are the same as the
         if len(self.x) == 0:
@@ -2087,7 +2087,8 @@ class polymesh2d(object):
             return self.p(x)
         else:
             return mesh2d(x=mesh1d(x, self.x.label, self.x.unit),
-                          d=self.p(x), label=self.label, unit=self.unit)
+                                        d=self.p(x),
+                                        label=self.label, unit=self.unit)
 
     def plot(self, *pargs, **kwargs):
         import matplotlib.pyplot as plt
@@ -2223,9 +2224,9 @@ class polymesh3d(object):
 
     def __call__(self, x=None, y=None):
 
-        myPoly = polymesh2d(self._m3d(x=x).y,
+        myPoly = polymesh2d(self._m3d(x=x).d,
                             x_label=self.y.label, x_unit=self.y.unit,
-                            y_label=self.z.label, y_unit=self.z.unit)
+                            label=self.z.label, unit=self.z.unit)
         if y is None:
             return myPoly
         else:

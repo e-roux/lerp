@@ -40,30 +40,38 @@ def deprecated(func):
     return wrapper
 
 
-def _myGrid(dx=None, dy=None):
+def myGrid(dx=None, dy=None, fig=None, axe=None):
     """
-    plt.graph_paper = lambda dX = None, dY = None : myGrid(dX, dY)
+    plt.graph_paper = lambda dx = None, dy = None : myGrid(dx, dy)
     """
     import matplotlib.pyplot as plt
     from matplotlib.ticker import AutoMinorLocator, MultipleLocator
-    fig = plt.gcf()
-    for _i, _ax in enumerate(fig.axes):
-        if _i == 0:
-            if dx is not None:
-                majorLocator = MultipleLocator(dx)
-                _ax.axes.xaxis.set_major_locator(majorLocator)
-            if dy is not None:
-                majorLocator = MultipleLocator(dy)
-                _ax.axes.yaxis.set_major_locator(majorLocator)
 
-            _ax.axes.xaxis.set_minor_locator(AutoMinorLocator(n=10))
-            _ax.axes.yaxis.set_minor_locator(AutoMinorLocator(n=10))
-            lw = plt.rcParams['grid.linewidth']
-            _ax.grid(b=True, which='major', linewidth=lw, alpha=1)
-            _ax.grid(b=True, which='minor', linewidth=lw/2, alpha=0.6)
+    def format_axe(_ax):
+        if dy is not None:
+            majorLocator = MultipleLocator(dy)
+            _ax.axes.yaxis.set_major_locator(majorLocator)
+        if dx is not None:
+            majorLocator = MultipleLocator(dx)
+            _ax.axes.xaxis.set_major_locator(majorLocator)
+        _ax.axes.yaxis.set_minor_locator(AutoMinorLocator(n=10))
+        _ax.axes.xaxis.set_minor_locator(AutoMinorLocator(n=10))
+        lw = plt.rcParams['grid.linewidth']
+        _ax.grid(b=True, which='major', linewidth=lw, alpha=1)
+        _ax.grid(b=True, which='minor', linewidth=lw/3, alpha=0.6)
 
-        else:
-            _ax.grid(0)
+    if fig is None:
+        fig = plt.gcf()
+
+    if axe is not None:
+        format_axe(axe)
+    else:
+        for _i, _ax in enumerate(fig.axes):
+    #        if _ax.yaxis.get_ticks_position() == "left":
+            if _i == 0:
+                format_axe(_ax)
+            else:
+                _ax.grid(0)
 
 
 def myPlot(func):
@@ -161,17 +169,17 @@ def myPlot(func):
 
         if ylim is not None:
             plt.ylim(ylim)
-#         else:
-#             _y0 = np.sign(_ylim[0]) * dY * \
-#             np.ceil(np.abs(np.float(_ylim[0]))/dY) \
-#             if np.float(_ylim[0]) % dY != 0 else _ylim[0]
-#
-#             _y1 = np.sign(_ylim[1]) * dY * \
-#             np.ceil(np.abs(np.float(_ylim[1]))/dY) \
-#             if np.float(_ylim[1]) % dY != 0 else _ylim[1]
-#
-#             print(_y0, _y1)
-#             plt.ylim(_y0, _y1)
+    #         else:
+    #             _y0 = np.sign(_ylim[0]) * dY * \
+    #             np.ceil(np.abs(np.float(_ylim[0]))/dY) \
+    #             if np.float(_ylim[0]) % dY != 0 else _ylim[0]
+    #
+    #             _y1 = np.sign(_ylim[1]) * dY * \
+    #             np.ceil(np.abs(np.float(_ylim[1]))/dY) \
+    #             if np.float(_ylim[1]) % dY != 0 else _ylim[1]
+    #
+    #             print(_y0, _y1)
+    #             plt.ylim(_y0, _y1)
 
         if bokeh is True:
             from bokeh import mpl
