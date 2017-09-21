@@ -28,7 +28,8 @@ axis = namedtuple('axis', ['label', 'unit'])
 axeConv = {_i: _j for (_i, _j) in enumerate('xyzvw')}
 
 _html_style = {
-    'th': 'color:LightGrey;border:0px none;text-align:center;background:none;',
+    'th': 'color:LightGrey;border:0px none;'
+          'text-align:center;background:none;',
     'none': 'border:0px none;background:none;',
 }
 
@@ -67,8 +68,8 @@ class mesh(abc.ABC):
                 data = pickle.load(f)
             return data
         except OSError:
-            raise FileNotFoundError(f"Please check your path, \
-                {fileName} not found.")
+            raise FileNotFoundError(f"Please check your path, "
+                                    f"{fileName} not found.")
 
     def to_pickle(self, fileName=None):
         """Simple export to pickle."""
@@ -77,8 +78,8 @@ class mesh(abc.ABC):
             with open(fileName, 'wb') as f:
                 pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
         except OSError:
-            raise FileNotFoundError(f"Please check your path, \
-                {fileName} not found.")
+            raise FileNotFoundError(f"Please check your path, "
+                                    f"{fileName} not found.")
 
     def max(self, argwhere=False):
         """Returns the max value of the d array.
@@ -248,18 +249,26 @@ class mesh1d(np.ndarray):
             tbody = ET.SubElement(table, 'tbody')
             for _i in range(2):
                 if _i == 0:
-                    tr = ET.SubElement(tbody, 'tr',
-                                       {'style': 'border: 0px solid'})
+                    tr = ET.SubElement(tbody, 'tr', {'style': 'border:0px none;\
+                    border-bottom:1px solid #C0C0C0;background:none;'})
                     for _node in islice(np.arange(len(self)), 15):
                         ET.SubElement(tr, 'th',
-                                      {'style': _html_style['th']}).text = str(_node)
+                                      {'style': _html_style['th']})\
+                          .text = str(_node)
                     if len(self) > 16:
-                        ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = "..."
-                        ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self) - 1)
+                        ET.SubElement(tr, 'th',
+                                      {'style': _html_style['th']})\
+                          .text = "..."
+                        ET.SubElement(tr, 'th',
+                                      {'style': _html_style['th']})\
+                          .text = str(len(self) - 1)
                     elif len(self) > 15:
-                        ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self) - 1)
+                        ET.SubElement(tr, 'th',
+                                      {'style': _html_style['th']})\
+                          .text = str(len(self) - 1)
                 else:
-                    tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
+                    tr = ET.SubElement(tbody, 'tr',
+                                       {'style': 'border: 0px solid'})
                     for _node in islice(self, 15):
                         ET.SubElement(tr, 'td').text = str(_node)
                     if len(self) > 16:
@@ -374,7 +383,7 @@ class mesh1d(np.ndarray):
         # Test if self is not empty array
         try:
             len(self)
-        except:
+        except TypeError:
             res = np.array(obj)
         else:
             res = np.append(self, obj)
@@ -578,7 +587,8 @@ class mesh2d(mesh):
             new_args['d'] = [self(_x) / obj(_x) for _x in new_args['x']]
             return self.__class__(**new_args)
         else:
-            logger.warning(f"Multiplyng {obj.__class__.__name__} to {self.__class__.__name__} failed")
+            logger.warning(f"Multiplyng {obj.__class__.__name__} to "
+                           f"{self.__class__.__name__} failed")
 
     def __neg__(self):
         return self.__class__(x=self.x, d=-self.d)
@@ -587,8 +597,8 @@ class mesh2d(mesh):
         if isinstance(i, Number):
             return (self.x[i], self.d[i])
         else:
-            return self.__class__(x=self.x[i], d=self.d[i])#,
-                                  #**self.__class__.__dict__)
+            return self.__class__(x=self.x[i], d=self.d[i])  # ,
+            #  **self.__class__.__dict__)
 
     def __iter__(self):
         return zip(self.x, self.d)
@@ -628,12 +638,20 @@ class mesh2d(mesh):
                 ET.SubElement(tr, 'th', {'style': 'border:0px none;\
                 background:none;'})
                 for _node in islice(np.arange(len(self)), 15):
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(_node)
+                    ET.SubElement(tr, 'th',
+                                  {'style': _html_style['th']})\
+                      .text = str(_node)
                 if len(self) > 16:
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = "..."
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self) - 1)
+                    ET.SubElement(tr, 'th',
+                                  {'style': _html_style['th']})\
+                      .text = "..."
+                    ET.SubElement(tr, 'th',
+                                  {'style': _html_style['th']})\
+                      .text = str(len(self) - 1)
                 elif len(self) > 15:
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self) - 1)
+                    ET.SubElement(tr, 'th',
+                                  {'style': _html_style['th']})\
+                      .text = str(len(self) - 1)
             else:
                 tr = ET.SubElement(tbody, 'tr')
                 _e = getattr(self, _v)
@@ -643,8 +661,8 @@ class mesh2d(mesh):
                 b = ET.SubElement(td, 'b')
                 b.text = label if label is not None else "Label"
                 span = ET.SubElement(td, 'span')
-                span.text = " [{}]".format(unit if unit is not None else "unit")
-
+                span.text = " [{}]".format(unit if unit is not None
+                                           else "unit")
                 for _node in islice(_e, 15):
                     ET.SubElement(tr, 'td').text = str(_node)
                 if len(self) > 16:
@@ -656,8 +674,6 @@ class mesh2d(mesh):
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
 
     def __str__(self):
-        """
-        """
         o = ""
         o += "\t".join(map(str, self.x))
         o += "\n"
@@ -665,7 +681,7 @@ class mesh2d(mesh):
         return o
 
     def _sort(self, reverse=False):
-        """Sorts the grid, ascending x values (default)
+        """Sort the grid, ascending x values (default).
 
         Parameters
         ----------
@@ -946,7 +962,8 @@ class mesh2d(mesh):
                                             win32clipboard.CF_UNICODETEXT)
             win32clipboard.CloseClipboard()
 
-        set_clipboard('\r\n'.join([str(_x) + '\t' + str(_y) for (_x, _y) in zip(self.x, self.d)]).replace('.', decimal))
+        set_clipboard('\r\n'.join([str(_x) + '\t' + str(_y) for (_x, _y)
+                      in zip(self.x, self.d)]).replace('.', decimal))
 
     def to_csv(self, fileName=None, nbreDecimales=2):
         """
@@ -984,7 +1001,9 @@ class mesh2d(mesh):
 
     def _init_gradient(self):
         _d = np.diff(self.x)
-        self._gradient = mesh2d(self.x, np.gradient(self.d, np.concatenate((_d, [_d[-1]]))))
+        self._gradient = mesh2d(self.x,
+                                np.gradient(self.d,
+                                            np.concatenate((_d, [_d[-1]]))))
 
     def gradient(self, x=None):
         if self._gradient is None:
@@ -1123,9 +1142,9 @@ class mesh3d(mesh):
                         self._y == other._y and \
                 np.all(self.d == other.d):
             if self.label != other.label:
-                print("Labels are differents : {0.label} / {1.label}".format(self, other))
+                print(f"Labels are differents : {self.label} / {other.label}")
             if self.unit != other.unit:
-                print("Units are differents : {0.unit} / {1.unit}".format(self, other))
+                print("Units are differents : {self.unit} / {other.unit}")
             return True
         else:
             return False
@@ -1167,14 +1186,14 @@ class mesh3d(mesh):
         self.options = {}
         self.options['extrapolate'] = extrapolate
 
-        self._x = mesh1d(x, label=x_label, unit=x_unit) if "_x" not in kwargs \
-            else kwargs["_x"]
+        self._x = mesh1d(x, label=x_label, unit=x_unit) \
+            if "_x" not in kwargs else kwargs["_x"]
 
-        self._y = mesh1d(y, label=y_label, unit=y_unit) if "_y" not in kwargs \
-            else kwargs["_y"]
+        self._y = mesh1d(y, label=y_label, unit=y_unit) \
+            if "_y" not in kwargs else kwargs["_y"]
 
-        self.d = np.empty((self.x.size, self.y.size)) if d is None else \
-                np.asfarray(d, dtype='float64')
+        self.d = np.empty((self.x.size, self.y.size)) \
+            if d is None else np.asfarray(d, dtype='float64')
 
         if clipboard is True:
             self.read_clipboard()
@@ -1216,33 +1235,43 @@ class mesh3d(mesh):
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
-        table = ET.SubElement(res, 'table', {'style': _html_style['none'], 'class': 'mesh3d'})
+        table = ET.SubElement(res, 'table',
+                              {'style': _html_style['none'],
+                               'class': 'mesh3d'})
         tbody = ET.SubElement(table, 'tbody')
 
         for _a in np.arange(3):
             if _a == 0:
-                tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
-                ET.SubElement(tr, 'th', {'colspan': '3', 'style': _html_style['none']})
-                td = ET.SubElement(tr, 'th', {'colspan': str(len(self._y)),
-                                              'style': _html_style['none']})
+                tr = ET.SubElement(tbody, 'tr',
+                                   {'style': _html_style['none']})
+                ET.SubElement(tr, 'th',
+                              {'colspan': '3', 'style': _html_style['none']})
+                td = ET.SubElement(tr, 'th',
+                                   {'colspan': str(len(self._y)),
+                                    'style': _html_style['none']})
                 ET.SubElement(td, 'b').text = self._y.label or "Label"
                 ET.SubElement(td, 'span').text = " [{}]".format(
                     self._y.unit or "Unit")
             elif _a == 1:
-                #                ET.SubElement(tr, 'th').text = str(self._x[_i])
-
-                tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
-                ET.SubElement(tr, 'th', {'colspan': '3', 'style': _html_style['none']})
+                tr = ET.SubElement(tbody, 'tr',
+                                   {'style': _html_style['none']})
+                ET.SubElement(tr, 'th',
+                              {'colspan': '3', 'style': _html_style['none']})
                 for _node in islice(np.arange(len(self._y)), 15):
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(_node)
+                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
+                      .text = str(_node)
                 if len(self._y) > 16:
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = "..."
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self._y) - 1)
+                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
+                      .text = "..."
+                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
+                      .text = str(len(self._y) - 1)
                 elif len(self._y) > 15:
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(len(self._y) - 1)
+                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
+                      .text = str(len(self._y) - 1)
 
                 tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
-                ET.SubElement(tr, 'th', {'colspan': '3', 'style': _html_style['none']})
+                ET.SubElement(tr, 'th',
+                              {'colspan': '3', 'style': _html_style['none']})
                 for _node in islice(self._y, 15):
                     ET.SubElement(tr, 'th').text = str(_node)
                 if len(self._y) > 16:
@@ -1250,19 +1279,22 @@ class mesh3d(mesh):
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
                 elif len(self._y) > 15:
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
-
-
             else:
                 for _i, _v in enumerate(self._x):
-                    tr = ET.SubElement(tbody, 'tr', {'style': 'border: 0px solid'})
+                    tr = ET.SubElement(tbody, 'tr',
+                                       {'style': 'border: 0px solid'})
                     if _i == 0:
-                        td = ET.SubElement(tr, 'th', {'rowspan': str(len(self._x)),
-                                                      'style': _html_style['none']})
-                        ET.SubElement(td, 'b', {'style': _html_style['none']}).text = self._x.label or "Label"
-                        ET.SubElement(td, 'span', {'style': _html_style['none']}).text = " [{}]".format(
-                            self._x.unit or "Unit")
+                        td = ET.SubElement(tr, 'th',
+                                           {'rowspan': str(len(self._x)),
+                                            'style': _html_style['none']})
+                        ET.SubElement(td, 'b', {'style': _html_style['none']})\
+                          .text = self._x.label or "Label"
+                        ET.SubElement(td, 'span',
+                                      {'style': _html_style['none']})\
+                          .text = " [{}]".format(self._x.unit or "Unit")
 
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']}).text = str(_i)
+                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
+                      .text = str(_i)
                     ET.SubElement(tr, 'th').text = str(self._x[_i])
 
                     for _node in islice(self.d[_i], 15):
@@ -1284,7 +1316,8 @@ class mesh3d(mesh):
         isYslice = False
 
         def _get_m2d(slx, slw):
-            return mesh2d(x=slx, d=mesh1d(slw, self.label, self.unit), extrapolate=self.options['extrapolate'])
+            return mesh2d(x=slx, d=mesh1d(slw, self.label, self.unit),
+                          extrapolate=self.options['extrapolate'])
 
         try:
             if len(sl) == 2:
@@ -1303,7 +1336,8 @@ class mesh3d(mesh):
         if isXslice and isYslice:
             return self.__class__(x=self._x[slx], y=self._y[sly],
                                   d=self.d[slx, sly], label=self.label,
-                                  unit=self.unit, extrapolate=self.options['extrapolate'])
+                                  unit=self.unit,
+                                  extrapolate=self.options['extrapolate'])
         elif not isXslice and isYslice:
             return _get_m2d(self._y[sly], self.d[slx, sly])
         elif isXslice and not isYslice:
@@ -1378,11 +1412,10 @@ class mesh3d(mesh):
                 iY = np.searchsorted(self.y, y) - 1
 
             Z1 = self.d[iX, iY] + (self.d[iX, iY + 1] - self.d[iX, iY]) * \
-                                  (y - self.y[iY]) / (self.y[iY + 1] \
-                                                      - self.y[iY])
+                (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
             Z2 = self.d[iX + 1, iY] + \
-                 (self.d[iX + 1, iY + 1] - self.d[iX + 1, iY]) * \
-                 (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
+                (self.d[iX + 1, iY + 1] - self.d[iX + 1, iY]) * \
+                (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
 
             return Z1 + (Z2 - Z1) * (x - self.x[iX]) / \
                         (self.x[iX + 1] - self.x[iX])
@@ -1409,7 +1442,7 @@ class mesh3d(mesh):
                                                          kx=1, ky=1)
 
             return self.__class__(x=x, y=y,
-                                  d=[fitpack.bisplev(_x, _y, (tx, ty, c, 1, 1)) \
+                                  d=[fitpack.bisplev(_x, _y, (tx, ty, c, 1, 1))
                                      for _x, _y in product(x, y)],
                                   label=self.label, unit=self.unit)
 
@@ -1435,11 +1468,13 @@ class mesh3d(mesh):
                 iY = np.searchsorted(self.y, y) - 1
 
             Z1 = self.d[iX, iY] + (self.d[iX, iY + 1] - self.d[iX, iY]) * \
-                                  (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
-            Z2 = self.d[iX + 1, iY] + (self.d[iX + 1, iY + 1] - self.d[iX + 1, iY]) * \
-                                      (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
+                (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
+            Z2 = self.d[iX + 1, iY] + \
+                (self.d[iX + 1, iY + 1] - self.d[iX + 1, iY]) * \
+                (y - self.y[iY]) / (self.y[iY + 1] - self.y[iY])
 
-            return Z1 + (Z2 - Z1) * (x - self.x[iX]) / (self.x[iX + 1] - self.x[iX])
+            return Z1 + (Z2 - Z1) * \
+                (x - self.x[iX]) / (self.x[iX + 1] - self.x[iX])
         # x or y is numeric
         elif isxN | isyN:
             # Save extrapolate status in options before setting to True
@@ -1559,8 +1594,10 @@ class mesh3d(mesh):
 
     # Important : non sort!
     def diff(self, axis=0, n=1):
-        return self.__class__(x=np.diff(self._x, n=n) if axis == 0 else self._x,
-                              y=np.diff(self._y, n=n) if axis == 1 else self._y,
+        return self.__class__(x=np.diff(self._x, n=n) if axis == 0
+                                else self._x,
+                              y=np.diff(self._y, n=n) if axis == 1
+                                else self._y,
                               d=np.diff(self.d, axis=axis, n=n),
                               label=self.label, unit=self.unit,
                               sort=False)
@@ -1590,8 +1627,8 @@ class mesh4d(mesh):
         self._x = mesh1d(x, label=x_label, unit=x_unit)
         self._y = mesh1d(y, label=y_label, unit=y_unit)
         self._z = mesh1d(z, label=z_label, unit=z_unit)
-        self.d = np.zeros((self._x.size, self._y.size, self._z.size)) if d is None else \
-            np.asfarray(d, dtype=dtype)
+        self.d = np.zeros((self._x.size, self._y.size, self._z.size))\
+            if d is None else np.asfarray(d, dtype=dtype)
 
         self.reshape()
 
@@ -1641,9 +1678,9 @@ class mesh4d(mesh):
                         self._z == other._z and \
                 np.all(self.d == other.d):
             if self.label != other.label:
-                print("Labels are differents : {0.label} / {1.label}".format(self, other))
+                print(f"Labels are differents : {self.label} / {other.label}")
             if self.unit != other.unit:
-                print("Units are differents : {0.unit} / {1.unit}".format(self, other))
+                print("Units are differents : {self.unit} / {other.unit}")
             return True
         else:
             return False
@@ -1682,16 +1719,18 @@ class mesh4d(mesh):
                 isZslice = len(self.z[slz]) > 1 or False
 
         except:
-            slx, sly, slz = sl, slice(None, None, None), slice(None, None, None)
+            slx, sly, slz = sl, slice(None, None, None),\
+             slice(None, None, None)
             if isinstance(slx, slice):
                 isXslice = len(self.x[slx]) > 1 or False
             isYslice = True
             isZslice = True
 
         if isXslice and isYslice and isZslice:
-            return self.__class__(x=self._x[slx], y=self._y[sly], z=self._z[slz],
-                                  d=self.d[slx, sly, slz], label=self.label,
-                                  unit=self.unit, extrapolate=self.options['extrapolate'])
+            return self.__class__(x=self._x[slx], y=self._y[sly],
+                                  z=self._z[slz], d=self.d[slx, sly, slz],
+                                  label=self.label, unit=self.unit,
+                                  extrapolate=self.options['extrapolate'])
 
         elif isXslice and isYslice and not isZslice:
             return _get_m3d(self._x[slx], self._y[sly], self.d[slx, sly, slz])
@@ -1714,7 +1753,8 @@ class mesh4d(mesh):
         """Best results with numpy
         """
         if self.options['extrapolate']:
-            logger.warning("Extrapolation not implented in {}".format(self.__class__.__name__))
+            logger.warning(f"Extrapolation not implented in "
+                           f" {self.__class__.__name__}")
             return self.interpolate(x=x, y=y, z=z, *args, **kwargs)
         else:
             return self.interpolate(x=x, y=y, z=z, *args, **kwargs)
@@ -1749,7 +1789,7 @@ class mesh4d(mesh):
         # attribute x,y or z from self
         wA = "_" + axeConv.get(axis)
         _axis = getattr(self, wA)
-        #print(wA, _axis)
+        # print(wA, _axis)
 
         # TODO: check that every (x,y) from mesh3d to add are the same as the
         if len(self.x) == 0:
@@ -1838,9 +1878,9 @@ class mesh4d(mesh):
         # x or y are numeric
         # TODO : ne marche pas à partir de là !!!!
 
-        x = x if x is not None else self.x
-        y = y if y is not None else self.y
-        z = z if z is not None else  self.z
+        x = x or self.x
+        y = y or self.y
+        z = z or self.z
 
         test = {
             (True, True, False): "__import__('lerp').mesh2d(\
@@ -1872,7 +1912,8 @@ class mesh4d(mesh):
                 label=self.label, unit=self.unit, **self.options)",
         }
 
-        return eval(test[(isxN, isyN, iszN)], {'self': self, 'x': x, 'y': y, 'z': z})
+        return eval(test[(isxN, isyN, iszN)],
+                    {'self': self, 'x': x, 'y': y, 'z': z})
 
     def _repr_html_(self):
         import xml.etree.ElementTree as ET
@@ -1881,7 +1922,8 @@ class mesh4d(mesh):
         pre = ET.SubElement(root, 'p')
         ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
         ET.SubElement(pre, 'b').text = self.label or "Label"
-        span = ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+        span = ET.SubElement(pre, 'span').text = " [{}]".format(self.unit
+                                                                or "unit")
         ET.SubElement(pre, 'br')
 
         root.append(ET.fromstring(self.x._repr_html_()))
@@ -2083,9 +2125,8 @@ class polymesh2d(object):
         if isinstance(x, Number):
             return self.p(x)
         else:
-            return mesh2d(x=mesh1d(x, self.x.label, self.x.unit),
-                                        d=self.p(x),
-                                        label=self.label, unit=self.unit)
+            return mesh2d(x=mesh1d(x, self.x.label, self.x.unit), d=self.p(x),
+                          label=self.label, unit=self.unit)
 
     def plot(self, *pargs, **kwargs):
         import matplotlib.pyplot as plt
@@ -2166,9 +2207,7 @@ class polymesh2d(object):
         return mesh2d(x=mesh1d(x, label=self.x.label, unit=self.x.unit),
                       d=self.p(x), label=self.label, unit=self.unit)
 
-############################################################################
-# CLASSE polymesh3d
-############################################################################
+
 class polymesh3d(object):
     """
     """
