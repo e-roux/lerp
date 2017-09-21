@@ -25,15 +25,15 @@ Installation
 
 To install the development version:
 
-```shell
-pip install git+https://github.com/gwin-zegal/lerp
-```
+.. code:: bash
+    pip install git+https://github.com/gwin-zegal/lerp
+
 
 Update with:
 
-```shell
-pip install --upgrade git+https://github.com/gwin-zegal/lerp
-```
+.. code:: bash
+    pip install --upgrade git+https://github.com/gwin-zegal/lerp
+
 
 
 License
