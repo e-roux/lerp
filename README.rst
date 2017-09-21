@@ -10,9 +10,7 @@ lerp : Lookup Table
 
 ``lerp`` aims to supply lookup table facility in python on top of numpy.
 
-
-.. note::
-    This project is in early alpha phase.
+This project is in early alpha phase.
 
 
 Documentation (and example of use):
@@ -21,5 +19,24 @@ Documentation (and example of use):
 Source code repository (and issue tracker):
     https://github.com/gwin-zegal/lerp
 
-License:
-    MIT -- see the file ``LICENSE`` for details.
+
+Installation
+------------
+
+To install the development version:
+
+```shell
+pip install git+https://github.com/gwin-zegal/lerp
+```
+
+Update with:
+
+```shell
+pip install --upgrade git+https://github.com/gwin-zegal/lerp
+```
+
+
+License
+-------
+
+MIT -- see the file ``LICENSE`` for details.
