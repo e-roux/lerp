@@ -102,6 +102,7 @@ def myPlot(func):
         dX = kwargs.pop('dx') if 'dx' in kwargs else None
         dY = kwargs.pop('dy') if 'dy' in kwargs else None
         yaxis = kwargs.pop('yaxis') if 'yaxis' in kwargs else 'y1'
+        step = kwargs.pop('step') if 'step' in kwargs else False
 
         if isinstance(data, mesh1d):
             Y = data
@@ -140,7 +141,15 @@ def myPlot(func):
         # --------------------------------------------------------------------
         # Tracé du graphe
         # --------------------------------------------------------------------
-        myPlt = plt.plot(X, Y, *args, **kwargs)
+        if step is False:
+            if 'where' in kwargs:
+                kwargs.pop('where')
+            myPlt = plt.plot(X, Y, *args, **kwargs)
+        else:
+            step = kwargs.pop('step') if 'step' in kwargs else False
+            if 'where' not in kwargs:
+                kwargs['where'] = 'post'
+            myPlt = plt.step(X, Y, *args, **kwargs)
 
         dX = np.ceil((float(X[-1])-float(X[0])) / 12)\
             if dX is None else float(dX)

@@ -329,7 +329,6 @@ class mesh1d(np.ndarray):
     @myPlot
     def plot(self, *args, **kwargs):
         return
-        # _plot(y=self)
 
     def pop(self, axis=0):
         """
@@ -817,9 +816,12 @@ class mesh2d(mesh):
 
     @property
     def steps(self):
+        from functools import partial
+
         self._steps = deepcopy(self)
         # Warning : monkey patching
         self._steps.__call__ = self.step
+        self._steps.plot = partial(self.plot, step=True)
 
         return self._steps
 
