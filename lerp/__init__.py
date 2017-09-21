@@ -53,9 +53,11 @@ class mesh(abc.ABC):
         return self.__add__(-obj)
 
     def shape(self):
+        """Get object shape."""
         return self.d.shape
 
     def read_pickle(self, fileName=None):
+        """Read from pickle."""
         try:
             fileName = os.path.normpath(fileName)
             os.path.exists(fileName)
@@ -69,6 +71,7 @@ class mesh(abc.ABC):
                 {fileName} not found.")
 
     def to_pickle(self, fileName=None):
+        """Simple export to pickle."""
         try:
             fileName = os.path.normpath(fileName)
             with open(fileName, 'wb') as f:
@@ -80,12 +83,12 @@ class mesh(abc.ABC):
     def max(self, argwhere=False):
         """Returns the max value of the d array.
 
-        If c (coordinates) is set to True, returns a tuple containing
-        (min(d), c where d is min)
+        If argwhere is set to True, returns a tuple containing
+        (min(d), coordinates where d is min)
 
         Parameters
         ----------
-        c : boolean
+        argwhere : boolean
         """
 
         if argwhere is True:
@@ -96,17 +99,17 @@ class mesh(abc.ABC):
                     zip("xyzvw"[:self.d.ndim], _argmax_unravel)]
             _res.append(self.d.max())
             return tuple(_res)
-        return min(self.d)
+        return max(self.d)
 
     def min(self, argwhere=False):
         """Returns the min value of the d array.
 
-        If c (coordinates) is set to True, returns a tuple containing
-        (min(d), c where d is min)
+        If argwhere is set to True, returns a tuple containing
+        (min(d), coordinates where d is min)
 
         Parameters
         ----------
-        c : boolean
+        argwhere : boolean
         """
 
         if argwhere is True:
@@ -120,9 +123,11 @@ class mesh(abc.ABC):
         return min(self.d)
 
     def mean(self, *args, **kwargs):
+        """Mean calculation."""
         return self.d.mean(*args, **kwargs)
 
     def median(self, *args, **kwargs):
+        """Median calculation."""
         return self.d.median(*args, **kwargs)
 
 
@@ -314,14 +319,11 @@ class mesh1d(np.ndarray):
         return newArray
 
     def mean(self, *args, **kwargs):
-        """
-        Returns
-        -------
-        Object mean
-        """
+        """Mean calculation."""
         return np.mean(np.asarray(self), *args, **kwargs)
 
     def median(self, *args, **kwargs):
+        """Median calculation."""
         return np.median(np.asarray(self), *args, **kwargs)
 
     @myPlot
@@ -760,7 +762,7 @@ class mesh2d(mesh):
                               self.d.diff(n=n))
 
     def dropnan(self):
-        """Drop NaN values and return new {seld.__class__.__name__}."""
+        """Drop NaN values and return new mesh2d."""
         return self[~np.isnan(self.x)]
 
     def interpolate(self, x, assume_sorted=False, *args, **kwargs):
