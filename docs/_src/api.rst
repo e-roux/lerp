@@ -12,8 +12,6 @@ mesh2d
 .. autosummary::
 
    mesh2d.apply
-   mesh2d.push
-   mesh2d.d
    mesh2d.diff
    mesh2d.dropnan
    mesh2d.extrapolate

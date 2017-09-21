@@ -760,9 +760,7 @@ class mesh2d(mesh):
                               self.d.diff(n=n))
 
     def dropnan(self):
-        """
-        Checked
-        """
+        """Drop NaN values and return new {seld.__class__.__name__}."""
         return self[~np.isnan(self.x)]
 
     def interpolate(self, x, assume_sorted=False, *args, **kwargs):
