@@ -270,9 +270,9 @@ class mesh1d(np.ndarray):
         if isinstance(other, self.__class__) and \
                 np.all(np.asarray(self) == np.asarray(other)):
             if self.label != other.label:
-                print("Labels are differents : {0.label} / {1.label}".format(self, other))
+                print(f"Labels are differents : {self.label} / {other.label}")
             if self.unit != other.unit:
-                print("Units are differents : {0.unit} / {1.unit}".format(self, other))
+                print("Units are differents : {self.unit} / {other.unit}")
             return True
         else:
             return False
@@ -391,6 +391,7 @@ class mesh1d(np.ndarray):
     def __contains__(self, item):
         return item in np.asarray(self)
 
+
 ############################################################################
 # CLASSE mesh2d
 ############################################################################
@@ -428,19 +429,15 @@ class mesh2d(mesh):
                  clipboard=False, extrapolate=True,
                  contiguous=False,
                  **kwargs):
-        """
-        """
 
-        # Options
-        self.options = {'extrapolate' : extrapolate}
-
+        self.options = {'extrapolate': extrapolate}
         if 'options' in kwargs:
             self.options = {**kwargs['options'], **self.options}
 
         if clipboard is True:
             self.read_clipboard()
         elif contiguous is True:
-            self._recArray = np.rec(x,d)
+            self._recArray = np.rec(x, d)
         else:
             self._x = mesh1d(x, label=x_label, unit=x_unit)
             self._d = np.array(d).ravel()
@@ -483,7 +480,8 @@ class mesh2d(mesh):
 
         Notes
         ------------
-        Pay attention to 'extrapolate' options as it impacts the adding behavior of both arrays.
+        Pay attention to 'extrapolate' options as it impacts the
+        adding behavior of both arrays.
 
         Exemple
         ----------
@@ -530,10 +528,12 @@ class mesh2d(mesh):
             return self.__class__(**new_args)
         elif isinstance(obj, mesh2d):
             new_args['x'] = np.union1d(self.x, obj.x)
-            new_args['d'] = [_y1 + _y2 for _y1, _y2 in zip(self(new_args['x']), obj(new_args['x']))]
+            new_args['d'] = [_y1 + _y2 for _y1, _y2 in zip(self(new_args['x']),
+                                                           obj(new_args['x']))]
             return self.__class__(**new_args)
         else:
-            logger.warning(f"Adding {obj.__class__.__name__} to {self.__class__.__name__} failed")
+            logger.warning(f"Adding {obj.__class__.__name__} to \
+            {self.__class__.__name__} failed")
 
     def __mul__(self, obj):
         """
@@ -800,10 +800,9 @@ class mesh2d(mesh):
 
             else:
                 return interp2d(np.array([x]), self.x, self.d)[0]
-        except:
-            raise TypeError("{} interpolation not implemented in {}". \
-                            format(x.__class__.__name__,
-                                   self.__class__.__name__))
+        except TypeError:
+            raise TypeError("{x.__class__.__name__} interpolation not \
+            implemented in {self.__class__.__name__}")
 
     def step(self, x, **kwargs):
         """
@@ -823,11 +822,6 @@ class mesh2d(mesh):
         self._steps.__call__ = self.step
 
         return self._steps
-
-    #    @steps.setter
-    #    def steps(self, value):
-    #        self._steps = deepcopy(self)
-    #        self._steps.__call__ = self._steps.step
 
     def extrapolate(self, x, *args, **kwargs):
         """np.interp function with linear extrapolation
@@ -851,17 +845,14 @@ class mesh2d(mesh):
         return res
 
     def _extrapolate(self, x, *args, **kwargs):
-        """
-        """
-        #if 'step' in kwargs and kwargs['step'] is True:
+        # if 'step' in kwargs and kwargs['step'] is True:
         #    return self.step(x, **kwargs)
-
         if x <= self.x[0]:
             res = self.d[0] + (x - self.x[0]) * \
                               (self.d[1] - self.d[0]) / (self.x[1] - self.x[0])
         elif x >= self.x[-1]:
             res = self.d[-1] + (x - self.x[-1]) * \
-                               (self.d[-1] - self.d[-2]) / (self.x[-1] - self.x[-2])
+                    (self.d[-1] - self.d[-2]) / (self.x[-1] - self.x[-2])
         else:
             res = np.interp(x, self.x, self.d)
 
@@ -901,6 +892,7 @@ class mesh2d(mesh):
                                 self.label, self.unit)
 
         def get_clipboard():
+            # TODO : implement clipboard for linux / MacOS
             import win32clipboard
             try:
                 win32clipboard.OpenClipboard()
