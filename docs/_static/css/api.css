@@ -1,3 +1,18 @@
+
+#api table {
+    width : 100%;
+}
+
+#api table tr td:first-child,
+#api table tr th:first-child {
+    width : 30%;
+}
+
+#api table tr th:not(:first-child),
+#api table tr td:not(:first-child) {
+    padding-left: 0.5ex;
+}
+
 table.docutils th.field-name {
     background-color: aliceblue;
     border: 0px;
