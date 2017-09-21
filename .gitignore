@@ -14,6 +14,7 @@ MANIFEST.in
 MOVE
 data
 docs/_build/
+docs/lerp.log
 sample/
 src/util.py
 tests/

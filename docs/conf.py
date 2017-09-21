@@ -25,6 +25,7 @@ import guzzle_sphinx_theme
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.autosummary',
+    'sphinx.ext.imgconverter',
     'sphinx.ext.inheritance_diagram',
     'sphinx.ext.mathjax',
     'sphinx.ext.napoleon',
@@ -120,7 +121,7 @@ latex_elements = {
 
     # Additional stuff for the LaTeX preamble.
     #
-    'preamble': '\usepackage{svg}',
+    # 'preamble': '\usepackage{svg}',
 
     # Latex figure (float) alignment
     #
