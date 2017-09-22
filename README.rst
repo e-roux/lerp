@@ -34,7 +34,7 @@ Update with:
 
 .. code:: bash
 
-    pip install --upgrade git+https://github.com/gwin-zegal/lerp
+    pip install --upgrade --no-deps git+https://github.com/gwin-zegal/lerp
 
 
 
