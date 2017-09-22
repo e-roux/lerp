@@ -768,7 +768,7 @@ class mesh2d(mesh):
         Checked
         """
         return self.__class__(self.x[:-n],
-                              self.d.diff(n=n))
+                              np.diff(self.d, n=n))
 
     def dropnan(self):
         """Drop NaN values and return new mesh2d."""
@@ -942,8 +942,11 @@ class mesh2d(mesh):
             print("Pas importable")
 
     def resample(self, x):
+        _dict = {_k: self.__dict__[_k] for _k in
+                 (set(self.__dict__.keys()) -
+                  set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
         return self.__class__(x=mesh1d(x, **self.x.__dict__),
-                              d=self.d.__class__(self(x), **self.d.__dict__))
+                              d=self(x), **_dict)
 
     def to_clipboard(self, transpose=False, decimal=","):
         def set_clipboard(text):
