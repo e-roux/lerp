@@ -1481,24 +1481,29 @@ class mesh3d(mesh):
             extrapolate = self.options['extrapolate']
             self.options['extrapolate']
             if isxN:
-                y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
+                y = self._y if y is None \
+                    else self._y.__class__(y, **self._y.__dict__)
                 res = mesh2d(y, mesh1d([self(x, _y) for _y in y],
                                        self.label, self.unit))
                 self.options['extrapolate'] = extrapolate
                 return res
             else:
-                x = self._x if x is None else self._x.__class__(x, **self._x.__dict__)
+                x = self._x if x is None \
+                    else self._x.__class__(x, **self._x.__dict__)
                 res = mesh2d(x, mesh1d([self(_x, y) for _x in x],
                                        self.label, self.unit))
                 self.options['extrapolate'] = extrapolate
                 return res
                 # Either x nor y is numeric
         else:
-            x = self._x if x is None else self._x.__class__(x, **self._x.__dict__)
-            y = self._y if y is None else self._y.__class__(y, **self._y.__dict__)
+            x = self._x if x is None \
+                else self._x.__class__(x, **self._x.__dict__)
+            y = self._y if y is None \
+                else self._y.__class__(y, **self._y.__dict__)
 
             return self.__class__(x=x, y=y,
-                                  d=[self.extrapolate(_x, _y) for _x, _y in product(x, y)],
+                                  d=[self.extrapolate(_x, _y)
+                                     for _x, _y in product(x, y)],
                                   label=self.label, unit=self.unit)
 
     def from_pandas(self, obj):
@@ -1518,7 +1523,8 @@ class mesh3d(mesh):
         if self.unit is None:
             self.unit = ""
 
-        plt.xlabel(self.y.label + ' [' + self.y.unit + ']' if self.y.label is not None else 'Label' + ' [' + ']')
+        plt.xlabel(f"{self.y.label} [{self.y.unit}]"
+                   if self.y.label is not None else "Label []")
         plt.ylabel(self.label + ' [' + self.unit + ']')
 
         for _i, _x in enumerate(self.x):
@@ -1594,10 +1600,10 @@ class mesh3d(mesh):
 
     # Important : non sort!
     def diff(self, axis=0, n=1):
-        return self.__class__(x=np.diff(self._x, n=n) if axis == 0
-                                else self._x,
-                              y=np.diff(self._y, n=n) if axis == 1
-                                else self._y,
+        return self.__class__(x=np.diff(self._x, n=n)
+                              if axis == 0 else self._x,
+                              y=np.diff(self._y, n=n)
+                              if axis == 1 else self._y,
                               d=np.diff(self.d, axis=axis, n=n),
                               label=self.label, unit=self.unit,
                               sort=False)
