@@ -132,9 +132,6 @@ class mesh(abc.ABC):
         return self.d.median(*args, **kwargs)
 
 
-############################################################################
-# CLASSE mesh1d
-############################################################################
 class mesh1d(np.ndarray):
     """
     Basic subclass of `numpy.ndarray` with `unit` and `label` attributes.
@@ -402,9 +399,6 @@ class mesh1d(np.ndarray):
         return item in np.asarray(self)
 
 
-############################################################################
-# CLASSE mesh2d
-############################################################################
 class mesh2d(mesh):
     """
     Fundamental 2D object, strict monotonic
@@ -1025,9 +1019,6 @@ class mesh2d(mesh):
         return np.diff(self.d) / np.diff(self.x)
 
 
-############################################################################
-# CLASSE mesh3d
-############################################################################
 class mesh3d(mesh):
     """
     Interpolate over a 2-D grid.
@@ -1609,9 +1600,6 @@ class mesh3d(mesh):
                               sort=False)
 
 
-############################################################################
-# CLASSE mesh4d
-############################################################################
 class mesh4d(mesh):
     """
     """
@@ -1962,9 +1950,6 @@ class mesh4d(mesh):
                 {fileName} not found")
 
 
-############################################################################
-# CLASSE mesh5d
-############################################################################
 class mesh5d(mesh):
     """
     """
@@ -2112,9 +2097,6 @@ class mesh5d(mesh):
             {fileName} not found.")
 
 
-############################################################################
-# CLASSE polymesh2d
-############################################################################
 class polymesh2d(object):
     """Polynom based mash support."""
 
@@ -2247,7 +2229,7 @@ class polymesh3d(object):
         newElement = np.rec.array([(y, polymesh2d(p))], dtype=self._dtype)
         try:
             self.p = np.rec.array(np.append(newElement, self.p))
-        except:
+        except AttributeError:
             self.p = newElement
 
         # sort
