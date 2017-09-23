@@ -7,6 +7,7 @@ import os.path
 import numpy as np
 import pandas as pd
 from lerp.__init__ import mesh2d, mesh3d
+from lerp.util.FigureData import go as digitizer
 
 from openpyxl import load_workbook
 from openpyxl.utils import rows_from_range

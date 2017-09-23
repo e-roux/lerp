@@ -8,7 +8,7 @@ figures that were not accompanied by tables with the data themselves.
 Usage:
 
 >>> import FigureData
->>> FigureData.go(figure_file='Brammer11_Fig7.png',
+>>> FigureData.go(input='Brammer11_Fig7.png',
                   output_file='myfigure.data')
 
 The primary input is an image file of the figure (PNG, GIF, JPG). The
@@ -42,9 +42,9 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 import matplotlib.pyplot as plt
-import numpy as np
-from PIL import Image
+import matplotlib.image as mpimg
 
+import numpy as np
 
 class Globals(object):
     """Container for global variables accessible to the event handler."""
@@ -129,15 +129,17 @@ def go(input=None, output_file='plot.data'):
 
     # Display the plot
     try:
-        im = Image.open(figure_file)
+        im =mpimg.imread(input)
+    except FileNotFoundError:
+        raise
     else:
-        fig = plt.figure(figsize=(8,8.*im.size[0]/im.size[1]))
+        fig = plt.figure()
         fig.subplots_adjust(left=0.02, bottom=0.02, right=1-0.02, top=1-0.02)
 
         ax = fig.add_subplot(111)
         G.ax = ax
 
-        ax.imshow(im, aspect='auto', origin='lower')
+        ax.imshow(im, aspect='auto', origin='upper')
         ax.set_xticks([0, im.size[0]])
         ax.set_yticks([0, im.size[1]])
         ax.set_xlim(0, im.size[0])
