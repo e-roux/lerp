@@ -1026,8 +1026,8 @@ class mesh3d(mesh):
     """
     Interpolate over a 2-D grid.
 
-    `x`, `y` and `W` are arrays of values used to approximate some function
-    f: ``W = f(x, y)``. This class returns a function whose call method uses
+    `x`, `y` and `d` are arrays of values used to approximate some function
+    f: ``d = f(x, y)``. This class returns a function whose call method uses
     spline interpolation to find the value of new points.
 
     Parameters
