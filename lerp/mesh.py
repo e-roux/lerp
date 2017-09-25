@@ -918,6 +918,7 @@ class mesh2d(mesh):
         return
 
     def polyfit(self, degree=2):
+        from lerp.polymesh import polymesh2d
         return polymesh2d(p=np.polyfit(self.x, self.d, degree),
                           x_label=self.x.label, x_unit=self.x.unit,
                           label=self.label, unit=self.unit)

@@ -6,9 +6,10 @@ This module delivers polymesh support.
 
 import numpy as np
 
-from lerp.mesh import mesh1d, mesh2d, mesh3d
+from lerp.mesh import axis, mesh1d, mesh2d, mesh3d
 from lerp.intern import logger
 # logger
+from numbers import Number
 
 
 class polymesh2d(object):
