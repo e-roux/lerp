@@ -485,8 +485,8 @@ class mesh2d(mesh):
 
     @property
     def options(self):
-        print("options...")
-        return _setoptitem(self._options)
+        # print("options...")
+        return self._options
 
     @property
     def x(self):
