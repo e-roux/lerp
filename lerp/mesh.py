@@ -254,10 +254,11 @@ class mesh1d(np.ndarray):
                     tr = ET.SubElement(tbody, 'tr', {'style': 'border:0px none;\
                     border-bottom:1px solid #C0C0C0;background:none;'})
                     for _node in islice(np.arange(len(self)), 15):
-                        ET.StyledSubElement(tr, 'th').text = str(_node)
-                        #ET.SubElement(tr, 'th',
-                        #              {'style': _html_style['th']})\
-                        #  .text = str(_node)
+                        # Does not work
+                        # ET.StyledSubElement(tr, 'th').text = str(_node)
+                        ET.SubElement(tr, 'th',
+                                      {'style': _html_style['th']})\
+                          .text = str(_node)
                     if len(self) > 16:
                         ET.SubElement(tr, 'th',
                                       {'style': _html_style['th']})\
