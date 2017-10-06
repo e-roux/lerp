@@ -22,13 +22,17 @@ All rights reserved.
 import lerp.core.config as cf
 
 
-pc_max_seq_items = """
-: int or None
-    when pretty-printing a long sequence, no more then `max_seq_items`
-    will be printed. If items are omitted, they will be denoted by the
-    addition of "..." to the resulting string.
-
-    If set to None, the number of items to be printed is unlimited.
+pc_max_rows_doc = """
+: int
+    If max_rows is exceeded, switch to truncate view. Depending on
+    `large_repr`, objects are either centrally truncated or printed as
+    a summary view. 'None' value means unlimited.
+    In case python/IPython is running in a terminal and `large_repr`
+    equals 'truncate' this can be set to 0 and pandas will auto-detect
+    the height of the terminal and print a truncated object which fits
+    the screen height. The IPython notebook, IPython qtconsole, or
+    IDLE do not run in a terminal and hence it is not possible to do
+    correct auto-detection.
 """
 
 
@@ -36,4 +40,4 @@ style_backup = dict()
 
 
 with cf.config_prefix('display'):
-    cf.register_option('max_seq_items', 100, pc_max_seq_items)
+    cf.register_option('max_rows', 15, pc_max_rows_doc)

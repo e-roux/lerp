@@ -12,7 +12,8 @@ from numbers import Number
 import numpy as np
 from numpy.core.multiarray import interp as interp2d
 from scipy.interpolate import dfitpack, fitpack
-from lerp.intern import deprecated, logger, myPlot
+from lerp.intern import logger, myPlot
+from lerp.core.config import get_option
 
 # Using abc for practice purpose.
 import abc
@@ -21,15 +22,21 @@ axis = namedtuple('axis', ['label', 'unit'])
 
 axeConv = {_i: _j for (_i, _j) in enumerate('xyzvw')}
 
+
 _html_style = {
+    'table': 'border: 0px none;',
     'th': 'color:LightGrey;border:0px none;'
           'text-align:center;background:none;',
+    'tr': 'border:0px none; border-bottom:1px solid #C0C0C0;background:none;',
     'none': 'border:0px none;background:none;',
 }
+import xml.etree.ElementTree as ET
+# ET.SubStyledElement
+def _StyledSubElement(parent, child):
+    return ET.SubElement(parent, child,
+                         {'style': _html_style[child]})
 
-
-
-
+ET.StyledSubElement = _StyledSubElement
 
 class mesh(abc.ABC):
     """Docstring.
@@ -89,7 +96,7 @@ class mesh(abc.ABC):
         argwhere : boolean
         """
 
-        if argwhere is True:
+        if argwhere:
             _argmax = self.d.argmax()
             _argmax_unravel = np.unravel_index(_argmax, self.d.shape)
 
@@ -110,7 +117,7 @@ class mesh(abc.ABC):
         argwhere : boolean
         """
 
-        if argwhere is True:
+        if argwhere:
             _argmin = self.d.argmin()
             _argmin_unravel = np.unravel_index(_argmin, self.d.shape)
 
@@ -129,7 +136,7 @@ class mesh(abc.ABC):
         return self.d.median(*args, **kwargs)
 
 
-class mesh1d(np.ndarray):
+class BreakPoints(np.ndarray):
     """
     Basic subclass of `numpy.ndarray` with `unit` and `label` attributes.
 
@@ -202,9 +209,9 @@ class mesh1d(np.ndarray):
         @myArray.register(mesh1d)
         def _(o):
             # Override label and unit if given as parameter
-            if label is not None:
+            if label:
                 o.label = label
-            if unit is not None:
+            if unit:
                 o.unit = unit
             return o
 
@@ -222,63 +229,44 @@ class mesh1d(np.ndarray):
 
     def _repr_html_(self):
 
-        import xml.etree.ElementTree as ET
-
-        # ET.SubStyledElement
-        def _StyledSubElement(parent, child):
-            return ET.SubElement(parent, child,
-                            attr={'style': _html_style[child]})
-
-        ET.StyledSubElement = _StyledSubElement
-
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
         code = ET.SubElement(pre, 'code')
         code.text = self.__class__.__name__
         span = ET.SubElement(pre, 'span').text = ": "
         b = ET.SubElement(pre, 'b')
-        b.text = self.label if self.label is not None else "Label"
+        b.text = self.label or "Label"
         span = ET.SubElement(pre, 'span')
-        span.text = " [{}]".format(self.unit if self.unit is
-                                   not None else "unit")
+        span.text = " [{}]".format(self.unit or "unit")
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
         if self.size == 1:
             res.text = str(self)
         else:
-            table = ET.SubElement(res, 'table', {'style': 'border: 0px none;'})
+            table =ET.StyledSubElement(res, 'table')
             tbody = ET.SubElement(table, 'tbody')
             for _i in range(2):
-                if _i == 0:
-                    tr = ET.SubElement(tbody, 'tr', {'style': 'border:0px none;\
-                    border-bottom:1px solid #C0C0C0;background:none;'})
-                    for _node in islice(np.arange(len(self)), 15):
-                        # Does not work
-                        # ET.StyledSubElement(tr, 'th').text = str(_node)
-                        ET.SubElement(tr, 'th',
-                                      {'style': _html_style['th']})\
-                          .text = str(_node)
-                    if len(self) > 16:
-                        ET.SubElement(tr, 'th',
-                                      {'style': _html_style['th']})\
-                          .text = "..."
-                        ET.SubElement(tr, 'th',
-                                      {'style': _html_style['th']})\
-                          .text = str(len(self) - 1)
-                    elif len(self) > 15:
-                        ET.SubElement(tr, 'th',
-                                      {'style': _html_style['th']})\
-                          .text = str(len(self) - 1)
+                if not _i:
+                    tr = ET.StyledSubElement(tbody, 'tr')
+                    for _node in islice(np.arange(len(self)),
+                                        get_option("display.max_rows")-1):
+                        ET.StyledSubElement(tr, 'th').text = str(_node)
+                    if len(self) > get_option("display.max_rows"):
+                        ET.StyledSubElement(tr, 'th').text = "..."
+                        ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
+                    elif len(self) > get_option("display.max_rows") - 1:
+                        ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
                 else:
                     tr = ET.SubElement(tbody, 'tr',
                                        {'style': 'border: 0px solid'})
-                    for _node in islice(self, 15):
+                    for _node in islice(self,
+                                        get_option("display.max_rows") - 1):
                         ET.SubElement(tr, 'td').text = str(_node)
-                    if len(self) > 16:
+                    if len(self) > get_option("display.max_rows"):
                         ET.SubElement(tr, 'td').text = "..."
                         ET.SubElement(tr, 'td').text = str(self[-1])
-                    elif len(self) > 15:
+                    elif len(self) > get_option("display.max_rows") - 1:
                         ET.SubElement(tr, 'td').text = str(self[-1])
 
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
@@ -311,7 +299,7 @@ class mesh1d(np.ndarray):
         """
         res = self.__class__(np.apply_along_axis(f, 0, np.array(self)),
                              **self.__dict__)
-        if inplace is False:
+        if not inplace:
             return res
         else:
             for i, v in enumerate(self):
@@ -406,13 +394,16 @@ class mesh1d(np.ndarray):
         return item in np.asarray(self)
 
 
+mesh1d = BreakPoints
+
+
 class _Opt(dict):
-    def __setitem__(self,key,value):
-        if key=='message':
-            dict.__setitem__(self,'message','')
-            dict.__setitem__(self,'last_message',value)
+    def __setitem__(self, key, value):
+        if key == 'message':
+            dict.__setitem__(self, 'message', '')
+            dict.__setitem__(self, 'last_message', value)
         else:
-            dict.__setitem__(self,key,value)
+            dict.__setitem__(self, key, value)
 
 
 class mesh2d(mesh):
@@ -461,9 +452,9 @@ class mesh2d(mesh):
 
         # self.options.__setitem__ = self._setoptitem(self.options.__setitem__)
 
-        if clipboard is True:
+        if clipboard:
             self.read_clipboard()
-        elif contiguous is True:
+        elif contiguous:
             self._recArray = np.rec(x, d)
         else:
             self._x = mesh1d(x, label=x_label, unit=x_unit)
@@ -478,7 +469,7 @@ class mesh2d(mesh):
         # Decoration
         def wrapper(func):
             func()
-            if self._options['extrapolate'] is True:
+            if self._options['extrapolate']:
                 self.__call__ = self.extrapolate
             else:
                 self.__call__ = self.interpolate
@@ -504,8 +495,6 @@ class mesh2d(mesh):
     @d.setter
     def d(self, obj):
         self._d = obj
-
-
 
     def __add__(self, obj):
         """
@@ -653,38 +642,30 @@ class mesh2d(mesh):
 
     def _repr_html_(self):
 
-        import xml.etree.ElementTree as ET
         root = ET.Element('div')
-        # ET.SubElement(root, 'style').text="table,td,th,tbody{border:0px;}"
+
         pre = ET.SubElement(root, 'p')
         code = ET.SubElement(pre, 'code')
         code.text = self.__class__.__name__
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
-        table = ET.SubElement(res, 'table', {'style': 'border: 0px none;'})
+        table = ET.StyledSubElement(res, 'table')
         tbody = ET.SubElement(table, 'tbody')
         for _i, _v in enumerate('nxd'):
             if _i == 0:
-                tr = ET.SubElement(tbody, 'tr', {'style': 'border:0px none;\
-                border-bottom:1px solid #C0C0C0;background:none;'})
-                ET.SubElement(tr, 'th', {'style': 'border:0px none;\
-                background:none;'})
-                for _node in islice(np.arange(len(self)), 15):
-                    ET.SubElement(tr, 'th',
-                                  {'style': _html_style['th']})\
-                      .text = str(_node)
-                if len(self) > 16:
-                    ET.SubElement(tr, 'th',
-                                  {'style': _html_style['th']})\
-                      .text = "..."
-                    ET.SubElement(tr, 'th',
-                                  {'style': _html_style['th']})\
-                      .text = str(len(self) - 1)
-                elif len(self) > 15:
-                    ET.SubElement(tr, 'th',
-                                  {'style': _html_style['th']})\
-                      .text = str(len(self) - 1)
+                tr = ET.StyledSubElement(tbody, 'tr')
+                ET.SubElement(tr, 'th',
+                              {'style': 'border:0px none;'
+                               'background:none;'})
+                for _node in islice(np.arange(len(self)),
+                                    get_option("display.max_rows") - 1):
+                    ET.StyledSubElement(tr, 'th').text = str(_node)
+                if len(self) > get_option("display.max_rows"):
+                    ET.StyledSubElement(tr, 'th').text = "..."
+                    ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
+                elif len(self) > get_option("display.max_rows") - 1:
+                    ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
             else:
                 tr = ET.SubElement(tbody, 'tr')
                 _e = getattr(self, _v)
@@ -692,16 +673,15 @@ class mesh2d(mesh):
                 unit = self.x.unit if _v == "x" else self.unit
                 td = ET.SubElement(tr, 'td')
                 b = ET.SubElement(td, 'b')
-                b.text = label if label is not None else "Label"
+                b.text = label or "Label"
                 span = ET.SubElement(td, 'span')
-                span.text = " [{}]".format(unit if unit is not None
-                                           else "unit")
-                for _node in islice(_e, 15):
+                span.text = " [{}]".format(unit or "unit")
+                for _node in islice(_e, get_option("display.max_rows") - 1):
                     ET.SubElement(tr, 'td').text = str(_node)
-                if len(self) > 16:
+                if len(self) > get_option("display.max_rows"):
                     ET.SubElement(tr, 'td').text = "..."
                     ET.SubElement(tr, 'td').text = str(_e[-1])
-                elif len(self) > 15:
+                elif len(self) > get_option("display.max_rows") - 1:
                     ET.SubElement(tr, 'td').text = str(_e[-1])
 
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
@@ -747,7 +727,7 @@ class mesh2d(mesh):
 
         """
 
-        if x is not None and d is not None:
+        if x and d:
             x = np.ravel(x)
             d = np.ravel(d)
             # Indices des éléments uniquement dans x
@@ -786,14 +766,14 @@ class mesh2d(mesh):
 
         """
         if axis == "d":
-            if inplace is True:
+            if inplace:
                 self.d.apply(f, inplace)
             else:
                 return self.__class__(x=self.x, d=self.d.apply(f),
                                       **self.__dict__)
                 # return mesh2d(self.x, self.d.apply(f))
         elif axis == "x":
-            if inplace is True:
+            if inplace:
                 self.x.apply(f, inplace)
             else:
                 return self.__class__(x=self.x.apply(f), d=self.d,
@@ -959,16 +939,18 @@ class mesh2d(mesh):
         lineBr = '\r\n'
         dataSep = '\t'
 
-        if s.count('.') == 0 and s.count(',') > 0:
+        if not s.count('.') and s.count(','):
             s = s.replace(",", '.')
 
         # S'il y a des points dans le presse papier,
         # on remplace les virgules par des tabulations
-        if s.count(',') > 0 and s.count('.') > 0:
+
+        # if at least one ',' and one '.'
+        if s.count(',') and s.count('.'):
             s = s.replace(",", dataSep)
-        elif s.count('\t') == 0 and s.count(' ') > 0:
+        elif not s.count('\t') and s.count(' '):
             s = s.replace(' ', dataSep)
-        elif s.count('\t') == 0 and s.count(';') > 0:
+        elif not s.count('\t') and s.count(';'):
             s = s.replace(';', dataSep)
 
         if 1 <= s.count(lineBr) <= 2:
@@ -1285,27 +1267,26 @@ class mesh3d(mesh):
                                    {'style': _html_style['none']})
                 ET.SubElement(tr, 'th',
                               {'colspan': '3', 'style': _html_style['none']})
-                for _node in islice(np.arange(len(self._y)), 15):
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
-                      .text = str(_node)
-                if len(self._y) > 16:
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
-                      .text = "..."
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
-                      .text = str(len(self._y) - 1)
-                elif len(self._y) > 15:
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
-                      .text = str(len(self._y) - 1)
-
+                for _node in islice(np.arange(len(self._y)),
+                                    get_option("display.max_rows") - 1):
+                    ET.StyledSubElement(tr, 'th').text = str(_node)
+                if len(self._y) > get_option("display.max_rows"):
+                    ET.StyledSubElement(tr, 'th').text = "..."
+                    ET.StyledSubElement(tr, 'th').text = \
+                        str(len(self._y) - 1)
+                elif len(self._y) > get_option("display.max_rows") - 1:
+                    ET.StyledSubElement(tr, 'th').text = \
+                        str(len(self._y) - 1)
                 tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
                 ET.SubElement(tr, 'th',
                               {'colspan': '3', 'style': _html_style['none']})
-                for _node in islice(self._y, 15):
+                for _node in islice(self._y,
+                                    get_option("display.max_rows") - 1):
                     ET.SubElement(tr, 'th').text = str(_node)
-                if len(self._y) > 16:
+                if len(self._y) > get_option("display.max_rows"):
                     ET.SubElement(tr, 'th').text = "..."
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
-                elif len(self._y) > 15:
+                elif len(self._y) > get_option("display.max_rows") -1:
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
             else:
                 for _i, _v in enumerate(self._x):
@@ -1321,16 +1302,16 @@ class mesh3d(mesh):
                                       {'style': _html_style['none']})\
                           .text = " [{}]".format(self._x.unit or "Unit")
 
-                    ET.SubElement(tr, 'th', {'style': _html_style['th']})\
-                      .text = str(_i)
+                    ET.StyledSubElement(tr, 'th').text = str(_i)
                     ET.SubElement(tr, 'th').text = str(self._x[_i])
 
-                    for _node in islice(self.d[_i], 15):
+                    for _node in islice(self.d[_i],
+                                        get_option("display.max_rows") - 1):
                         ET.SubElement(tr, 'td').text = str(_node)
-                    if len(self._y) > 16:
+                    if len(self._y) > get_option("display.max_rows"):
                         ET.SubElement(tr, 'td').text = "..."
                         ET.SubElement(tr, 'td').text = str(self.d[_i][-1])
-                    elif len(self._y) > 15:
+                    elif len(self._y) > get_option("display.max_rows") - 1:
                         ET.SubElement(tr, 'td').text = str(self.d[_i][-1])
 
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
@@ -1953,8 +1934,8 @@ class mesh4d(mesh):
         pre = ET.SubElement(root, 'p')
         ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
         ET.SubElement(pre, 'b').text = self.label or "Label"
-        span = ET.SubElement(pre, 'span').text = " [{}]".format(self.unit
-                                                                or "unit")
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit
+                                                         or "unit")
         ET.SubElement(pre, 'br')
 
         root.append(ET.fromstring(self.x._repr_html_()))
@@ -2093,9 +2074,7 @@ class mesh5d(mesh):
             self.d = self.d[:, :, :, j]
 
     def _repr_html_(self):
-        import xml.etree.ElementTree as ET
         root = ET.Element('div')
-
         pre = ET.SubElement(root, 'p')
         ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
         ET.SubElement(pre, 'b').text = self.label or "Label"

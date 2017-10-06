@@ -56,6 +56,7 @@ import matplotlib.image as mpimg
 
 import numpy as np
 
+
 class Globals(object):
     """Container for global variables accessible to the event handler."""
 
