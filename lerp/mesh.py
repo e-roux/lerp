@@ -12,6 +12,7 @@ from numbers import Number
 import numpy as np
 from numpy.core.multiarray import interp as interp2d
 from scipy.interpolate import dfitpack, fitpack
+import xml.etree.ElementTree as ET
 from lerp.intern import logger, myPlot
 from lerp.core.config import get_option
 
@@ -22,7 +23,6 @@ axis = namedtuple('axis', ['label', 'unit'])
 
 axeConv = {_i: _j for (_i, _j) in enumerate('xyzvw')}
 
-
 _html_style = {
     'table': 'border: 0px none;',
     'th': 'color:LightGrey;border:0px none;'
@@ -30,13 +30,15 @@ _html_style = {
     'tr': 'border:0px none; border-bottom:1px solid #C0C0C0;background:none;',
     'none': 'border:0px none;background:none;',
 }
-import xml.etree.ElementTree as ET
-# ET.SubStyledElement
+
+
 def _StyledSubElement(parent, child):
     return ET.SubElement(parent, child,
                          {'style': _html_style[child]})
 
+
 ET.StyledSubElement = _StyledSubElement
+
 
 class mesh(abc.ABC):
     """Docstring.
@@ -244,7 +246,7 @@ class BreakPoints(np.ndarray):
         if self.size == 1:
             res.text = str(self)
         else:
-            table =ET.StyledSubElement(res, 'table')
+            table = ET.StyledSubElement(res, 'table')
             tbody = ET.SubElement(table, 'tbody')
             for _i in range(2):
                 if not _i:
@@ -1021,9 +1023,9 @@ class mesh2d(mesh):
     def gradient(self, x=None):
         if not hasattr(self, "_gradient"):
             _d = np.diff(self.x)
-            self._gradient = mesh2d(self.x,
-                                    np.gradient(self.d,
-                                                np.concatenate((_d, [_d[-1]]))))
+            self._gradient = \
+                mesh2d(self.x, np.gradient(self.d,
+                                           np.concatenate((_d, [_d[-1]]))))
         return self._gradient if x is None else self._gradient(x)
 
     @property
@@ -1231,8 +1233,6 @@ class mesh3d(mesh):
                               label=self.label, unit=self.unit)
 
     def _repr_html_(self):
-        """
-        """
         import xml.etree.ElementTree as ET
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
@@ -1286,7 +1286,7 @@ class mesh3d(mesh):
                 if len(self._y) > get_option("display.max_rows"):
                     ET.SubElement(tr, 'th').text = "..."
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
-                elif len(self._y) > get_option("display.max_rows") -1:
+                elif len(self._y) > get_option("display.max_rows") - 1:
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
             else:
                 for _i, _v in enumerate(self._x):
@@ -2078,8 +2078,7 @@ class mesh5d(mesh):
         pre = ET.SubElement(root, 'p')
         ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
         ET.SubElement(pre, 'b').text = self.label or "Label"
-        span = ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or
-                                                                "unit")
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
         ET.SubElement(pre, 'br')
 
         root.append(ET.fromstring(self.x._repr_html_()))
@@ -2099,9 +2098,8 @@ class mesh5d(mesh):
                 data = pickle.load(f)
             return data
         except OSError:
-            raise
-            # raise FileNotFoundError("Please check your path, {} not found".\
-            # format(fileName))
+            raise FileNotFoundError(f"Please check your path, \
+            {fileName} not found.")
 
     def to_pickle(self, fileName=None):
         try:
