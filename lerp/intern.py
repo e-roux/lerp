@@ -165,8 +165,10 @@ def myPlot(func):
         # _myGrid(dX, dY)
 
         # Ces lignes car le matplotilibrc ne permet pas ces options
-        [i.set_color("black") for i in plt.gca().get_xticklabels()]
-        [i.set_color("black") for i in plt.gca().get_yticklabels()]
+        for i in plt.gca().get_xticklabels():
+            i.set_color("black")
+        for i in plt.gca().get_yticklabels():
+            i.set_color("black") 
 
         alx = (fig.bbox.bounds[2]-fig.bbox.bounds[0]) / 12
         aly = (fig.bbox.bounds[3]-fig.bbox.bounds[1]) / 9
