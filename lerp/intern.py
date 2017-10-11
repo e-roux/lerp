@@ -168,7 +168,7 @@ def myPlot(func):
         for i in plt.gca().get_xticklabels():
             i.set_color("black")
         for i in plt.gca().get_yticklabels():
-            i.set_color("black") 
+            i.set_color("black")
 
         alx = (fig.bbox.bounds[2]-fig.bbox.bounds[0]) / 12
         aly = (fig.bbox.bounds[3]-fig.bbox.bounds[1]) / 9
