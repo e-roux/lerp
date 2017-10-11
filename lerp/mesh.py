@@ -299,8 +299,11 @@ class BreakPoints(np.ndarray):
         -------
         `mesh1d` if inplace is set to False
         """
+        _dict = {_k: self.__dict__[_k] for _k in
+                 (set(self.__dict__.keys()) -
+                  set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
         res = self.__class__(np.apply_along_axis(f, 0, np.array(self)),
-                             **self.__dict__)
+                             **_dict)
         if not inplace:
             return res
         else:
@@ -375,6 +378,9 @@ class BreakPoints(np.ndarray):
         As instance of numpy array, the elements are not added inplace
         """
         # Test if self is not empty array
+        _dict = {_k: self.__dict__[_k] for _k in
+                 (set(self.__dict__.keys()) -
+                  set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
         try:
             len(self)
         except TypeError:
@@ -385,12 +391,12 @@ class BreakPoints(np.ndarray):
         if return_index is True:
             _unique = np.unique(res, return_index=True)
             return [self.__class__(_unique[0].flatten(),
-                                   **self.__dict__), _unique[1]]
+                                   **_dict), _unique[1]]
 
         if unique is True:
             res = np.unique(res)
 
-        return self.__class__(res, **self.__dict__)
+        return self.__class__(res, **_dict)
 
     def __contains__(self, item):
         return item in np.asarray(self)
@@ -767,19 +773,22 @@ class mesh2d(mesh):
             Depends if inplace is set to False or True
 
         """
+        _dict = {_k: self.__dict__[_k] for _k in
+                 (set(self.__dict__.keys()) -
+                  set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
         if axis == "d":
             if inplace:
                 self.d.apply(f, inplace)
             else:
                 return self.__class__(x=self.x, d=self.d.apply(f),
-                                      **self.__dict__)
+                                      **_dict)
                 # return mesh2d(self.x, self.d.apply(f))
         elif axis == "x":
             if inplace:
                 self.x.apply(f, inplace)
             else:
                 return self.__class__(x=self.x.apply(f), d=self.d,
-                                      **self.__dict__)
+                                      **_dict)
                 # return mesh2d(self.x.apply(f), self.d)
         else:
             print("apply used on non existing axis")
