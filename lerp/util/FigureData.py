@@ -161,7 +161,7 @@ def go(input=None, output_file='plot.data'):
         plt.draw()
 
         # Add "click" listener to the plot
-        cid = fig.canvas.mpl_connect('button_press_event', onclick)
+        fig.canvas.mpl_connect('button_press_event', onclick)
 
         # Define -x- axis
         xticks = ''
@@ -173,8 +173,8 @@ def go(input=None, output_file='plot.data'):
         G.yrange = list(np.cast[float](yticks.split(',')))
 
         # Define the full plot window
-        full = input(f"\n ==  Now mark the ll and ur corners of the plot axes."
-                     f"<Enter> when done.")
+        input(f"\n ==  Now mark the ll and ur corners of the plot axes."
+              f"<Enter> when done.")
 
         G.xpix = G.xdata[0:2]
         G.ypix = G.ydata[2:4]
@@ -188,4 +188,4 @@ def go(input=None, output_file='plot.data'):
         print("\n == Now mark as many data points as you like."
               " == Click outside the plot window to save the `output_file`.")
 
-        done = input('\n== <ENTER> when done.\n')
+        input('\n== <ENTER> when done.\n')
