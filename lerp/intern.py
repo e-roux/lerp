@@ -120,12 +120,12 @@ def myPlot(func):
             if 'yaxis' in kwargs:
                 yaxis = kwargs.pop('yaxis')
             if yaxis == 'y2':
-                ax = _axe_tmp.twinx()
+                _axe_tmp.twinx()
             else:
-                ax = _axe_tmp
+                _axe_tmp
         else:
             fig = plt.figure()
-            ax = fig.add_subplot(111)
+            fig.add_subplot(111)
 
         func(data, *args, **kwargs)
 
