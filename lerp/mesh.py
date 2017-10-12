@@ -230,16 +230,14 @@ class BreakPoints(np.ndarray):
                    replace("(", "(d="), self)
 
     def _repr_html_(self):
+        max_rows = get_option("display.max_rows")
 
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
-        code = ET.SubElement(pre, 'code')
-        code.text = self.__class__.__name__
-        span = ET.SubElement(pre, 'span').text = ": "
-        b = ET.SubElement(pre, 'b')
-        b.text = self.label or "Label"
-        span = ET.SubElement(pre, 'span')
-        span.text = " [{}]".format(self.unit or "unit")
+        ET.SubElement(pre, 'code').text = myMesh.__class__.__name__
+        ET.SubElement(pre, 'span').text = ": "
+        ET.SubElement(pre, 'b').text = myMesh.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(myMesh.unit or "unit")
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
@@ -251,24 +249,22 @@ class BreakPoints(np.ndarray):
             for _i in range(2):
                 if not _i:
                     tr = ET.StyledSubElement(tbody, 'tr')
-                    for _node in islice(np.arange(len(self)),
-                                        get_option("display.max_rows")-1):
+                    for _node in islice(np.arange(len(self)), max_rows - 1):
                         ET.StyledSubElement(tr, 'th').text = str(_node)
-                    if len(self) > get_option("display.max_rows"):
+                    if len(self) > max_rows:
                         ET.StyledSubElement(tr, 'th').text = "..."
                         ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
-                    elif len(self) > get_option("display.max_rows") - 1:
+                    elif len(self) > max_rows - 1:
                         ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
                 else:
                     tr = ET.SubElement(tbody, 'tr',
                                        {'style': 'border: 0px solid'})
-                    for _node in islice(self,
-                                        get_option("display.max_rows") - 1):
+                    for _node in islice(self, max_rows - 1):
                         ET.SubElement(tr, 'td').text = str(_node)
-                    if len(self) > get_option("display.max_rows"):
+                    if len(self) > max_rows:
                         ET.SubElement(tr, 'td').text = "..."
                         ET.SubElement(tr, 'td').text = str(self[-1])
-                    elif len(self) > get_option("display.max_rows") - 1:
+                    elif len(self) > max_rows - 1:
                         ET.SubElement(tr, 'td').text = str(self[-1])
 
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
@@ -649,9 +645,9 @@ class mesh2d(mesh):
             format(self.x.__repr__(), self.d.__repr__())
 
     def _repr_html_(self):
+        max_rows = get_option("display.max_rows")
 
         root = ET.Element('div')
-
         pre = ET.SubElement(root, 'p')
         code = ET.SubElement(pre, 'code')
         code.text = self.__class__.__name__
@@ -666,13 +662,12 @@ class mesh2d(mesh):
                 ET.SubElement(tr, 'th',
                               {'style': 'border:0px none;'
                                'background:none;'})
-                for _node in islice(np.arange(len(self)),
-                                    get_option("display.max_rows") - 1):
+                for _node in islice(np.arange(len(self)), max_rows - 1):
                     ET.StyledSubElement(tr, 'th').text = str(_node)
-                if len(self) > get_option("display.max_rows"):
+                if len(self) > max_rows:
                     ET.StyledSubElement(tr, 'th').text = "..."
                     ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
-                elif len(self) > get_option("display.max_rows") - 1:
+                elif len(self) > max_rows - 1:
                     ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
             else:
                 tr = ET.SubElement(tbody, 'tr')
@@ -684,12 +679,12 @@ class mesh2d(mesh):
                 b.text = label or "Label"
                 span = ET.SubElement(td, 'span')
                 span.text = " [{}]".format(unit or "unit")
-                for _node in islice(_e, get_option("display.max_rows") - 1):
+                for _node in islice(_e, max_rows - 1):
                     ET.SubElement(tr, 'td').text = str(_node)
-                if len(self) > get_option("display.max_rows"):
+                if len(self) > max_rows:
                     ET.SubElement(tr, 'td').text = "..."
                     ET.SubElement(tr, 'td').text = str(_e[-1])
-                elif len(self) > get_option("display.max_rows") - 1:
+                elif len(self) > max_rows - 1:
                     ET.SubElement(tr, 'td').text = str(_e[-1])
 
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
@@ -1242,7 +1237,8 @@ class mesh3d(mesh):
                               label=self.label, unit=self.unit)
 
     def _repr_html_(self):
-        import xml.etree.ElementTree as ET
+        max_rows = get_option("display.max_rows")
+
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
         code = ET.SubElement(pre, 'code')
@@ -1276,26 +1272,24 @@ class mesh3d(mesh):
                                    {'style': _html_style['none']})
                 ET.SubElement(tr, 'th',
                               {'colspan': '3', 'style': _html_style['none']})
-                for _node in islice(np.arange(len(self._y)),
-                                    get_option("display.max_rows") - 1):
+                for _node in islice(np.arange(len(self._y)), max_rows - 1):
                     ET.StyledSubElement(tr, 'th').text = str(_node)
-                if len(self._y) > get_option("display.max_rows"):
+                if len(self._y) > max_rows:
                     ET.StyledSubElement(tr, 'th').text = "..."
                     ET.StyledSubElement(tr, 'th').text = \
                         str(len(self._y) - 1)
-                elif len(self._y) > get_option("display.max_rows") - 1:
+                elif len(self._y) > max_rows - 1:
                     ET.StyledSubElement(tr, 'th').text = \
                         str(len(self._y) - 1)
                 tr = ET.SubElement(tbody, 'tr', {'style': _html_style['none']})
                 ET.SubElement(tr, 'th',
                               {'colspan': '3', 'style': _html_style['none']})
-                for _node in islice(self._y,
-                                    get_option("display.max_rows") - 1):
+                for _node in islice(self._y, max_rows - 1):
                     ET.SubElement(tr, 'th').text = str(_node)
-                if len(self._y) > get_option("display.max_rows"):
+                if len(self._y) > max_rows:
                     ET.SubElement(tr, 'th').text = "..."
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
-                elif len(self._y) > get_option("display.max_rows") - 1:
+                elif len(self._y) > max_rows - 1:
                     ET.SubElement(tr, 'th').text = str(self._y[-1])
             else:
                 for _i, _v in enumerate(self._x):
@@ -1314,13 +1308,12 @@ class mesh3d(mesh):
                     ET.StyledSubElement(tr, 'th').text = str(_i)
                     ET.SubElement(tr, 'th').text = str(self._x[_i])
 
-                    for _node in islice(self.d[_i],
-                                        get_option("display.max_rows") - 1):
+                    for _node in islice(self.d[_i], max_rows - 1):
                         ET.SubElement(tr, 'td').text = str(_node)
-                    if len(self._y) > get_option("display.max_rows"):
+                    if len(self._y) > max_rows:
                         ET.SubElement(tr, 'td').text = "..."
                         ET.SubElement(tr, 'td').text = str(self.d[_i][-1])
-                    elif len(self._y) > get_option("display.max_rows") - 1:
+                    elif len(self._y) > max_rows - 1:
                         ET.SubElement(tr, 'td').text = str(self.d[_i][-1])
 
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
