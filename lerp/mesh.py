@@ -234,10 +234,10 @@ class BreakPoints(np.ndarray):
 
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
-        ET.SubElement(pre, 'code').text = myMesh.__class__.__name__
+        ET.SubElement(pre, 'code').text = self.__class__.__name__
         ET.SubElement(pre, 'span').text = ": "
-        ET.SubElement(pre, 'b').text = myMesh.label or "Label"
-        ET.SubElement(pre, 'span').text = " [{}]".format(myMesh.unit or "unit")
+        ET.SubElement(pre, 'b').text = self.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
