@@ -159,7 +159,7 @@ class xlsx(object):
         return res.from_pandas(self)
 
 
-def quoted_form_of(s: str):
+def quoted_form_of(s: str) -> str:
     """Return a quoted form of a string."""
     return f"\"{s}\""
 
