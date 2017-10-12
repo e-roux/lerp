@@ -270,13 +270,12 @@ class BreakPoints(np.ndarray):
         return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
 
     def __eq__(self, other):
-
         if isinstance(other, self.__class__) and \
                 np.all(np.asarray(self) == np.asarray(other)):
             if self.label != other.label:
                 print(f"Labels are differents : {self.label} / {other.label}")
             if self.unit != other.unit:
-                print("Units are differents : {self.unit} / {other.unit}")
+                print(f"Units are differents : {self.unit} / {other.unit}")
             return True
         else:
             return False
@@ -563,9 +562,13 @@ class mesh2d(mesh):
             new_args['d'] = np.add(self.d, obj)
             return self.__class__(**new_args)
         elif isinstance(obj, mesh2d):
-            new_args['x'] = np.union1d(self.x, obj.x)
-            new_args['d'] = [_y1 + _y2 for _y1, _y2 in zip(self(new_args['x']),
-                                                           obj(new_args['x']))]
+            if self.x == obj.x:
+                new_args['d'] = self.d + obj.d
+            else:
+                new_args['x'] = np.union1d(self.x, obj.x)
+                new_args['d'] = [_y1 + _y2 for _y1, _y2
+                                 in zip(self(new_args['x']),
+                                        obj(new_args['x']))]
             return self.__class__(**new_args)
         else:
             logger.warning(f"Adding {obj.__class__.__name__} to \
@@ -623,8 +626,7 @@ class mesh2d(mesh):
         if isinstance(i, Number):
             return (self.x[i], self.d[i])
         else:
-            return self.__class__(x=self.x[i], d=self.d[i])  # ,
-            #  **self.__class__.__dict__)
+            return self.__class__(x=self.x[i], d=self.d[i])
 
     def __iter__(self):
         return zip(self.x, self.d)
