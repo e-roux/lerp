@@ -649,8 +649,7 @@ class mesh2d(mesh):
 
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
-        code = ET.SubElement(pre, 'code')
-        code.text = self.__class__.__name__
+        ET.SubElement(pre, 'code').text = self.__class__.__name__
         ET.SubElement(pre, 'br')
 
         res = ET.SubElement(pre, 'p')
@@ -1241,14 +1240,10 @@ class mesh3d(mesh):
 
         root = ET.Element('div')
         pre = ET.SubElement(root, 'p')
-        code = ET.SubElement(pre, 'code')
-        code.text = self.__class__.__name__ + ": "
-        b = ET.SubElement(pre, 'b')
-        b.text = self.label or "Label"
-        span = ET.SubElement(pre, 'span')
-        span.text = " [{}]".format(self.unit or "unit")
+        ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
+        ET.SubElement(pre, 'b').text = self.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
         ET.SubElement(pre, 'br')
-
         res = ET.SubElement(pre, 'p')
         table = ET.SubElement(res, 'table',
                               {'style': _html_style['none'],
@@ -1936,8 +1931,7 @@ class mesh4d(mesh):
         pre = ET.SubElement(root, 'p')
         ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
         ET.SubElement(pre, 'b').text = self.label or "Label"
-        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit
-                                                         or "unit")
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
         ET.SubElement(pre, 'br')
 
         root.append(ET.fromstring(self.x._repr_html_()))
