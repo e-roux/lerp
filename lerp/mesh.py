@@ -1927,7 +1927,6 @@ class mesh4d(mesh):
                     {'self': self, 'x': x, 'y': y, 'z': z})
 
     def _repr_html_(self):
-        import xml.etree.ElementTree as ET
         root = ET.Element('div')
 
         pre = ET.SubElement(root, 'p')
