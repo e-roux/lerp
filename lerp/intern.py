@@ -6,6 +6,7 @@
 # Logging
 import logging
 import numpy as np
+from cycler import cycler
 # set up logging to file - see previous section for more details
 
 # define a Handler which writes INFO messages or higher to the sys.stderr
@@ -18,6 +19,17 @@ console.setFormatter(formatter)
 logger = logging.getLogger(__name__)
 logger.propagate = False
 logger.addHandler(console)
+
+
+category20 = cycler('color', ['#1f77b4', '#aec7e8', '#ff7f0e',
+                              '#ffbb78', '#2ca02c', '#98df8a',
+                              '#d62728', '#ff9896', '#9467bd',
+                              '#c5b0d5', '#8c564b', '#c49c94',
+                              '#e377c2', '#f7b6d2', '#7f7f7f',
+                              '#c7c7c7', '#bcbd22', '#dbdb8d',
+                              '#17becf', '#9edae5'])
+
+
 
 
 def deprecated(func):
@@ -48,10 +60,10 @@ def myGrid(dx=None, dy=None, fig=None, axe=None):
     from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
     def format_axe(_ax):
-        if dy is not None:
+        if dy:
             majorLocator = MultipleLocator(dy)
             _ax.axes.yaxis.set_major_locator(majorLocator)
-        if dx is not None:
+        if dx:
             majorLocator = MultipleLocator(dx)
             _ax.axes.xaxis.set_major_locator(majorLocator)
         _ax.axes.yaxis.set_minor_locator(AutoMinorLocator(n=10))
@@ -63,11 +75,10 @@ def myGrid(dx=None, dy=None, fig=None, axe=None):
     if fig is None:
         fig = plt.gcf()
 
-    if axe is not None:
+    if axe:
         format_axe(axe)
     else:
         for _i, _ax in enumerate(fig.axes):
-    #        if _ax.yaxis.get_ticks_position() == "left":
             if _i == 0:
                 format_axe(_ax)
             else:
@@ -87,12 +98,9 @@ def myPlot(func):
         # --------------------------------------------------------------------
         rc = kwargs.pop('rc') if 'rc' in kwargs else False
 
-        if rc is False:
-            plt.style.use('ggplot' if 'ggplot' in plt.style.available
-                          else 'default')
-
-        if rc is True and 'graphpaper' in plt.style.available:
-            plt.style.use('graphpaper')
+#        if rc is False:
+#            plt.style.use('ggplot' if 'ggplot' in plt.style.available
+#                          else 'default')
 
         xlim = kwargs.pop('xlim') if 'xlim' in kwargs else None
         ylim = kwargs.pop('ylim') if 'ylim' in kwargs else None
@@ -132,10 +140,10 @@ def myPlot(func):
         # --------------------------------------------------------------------
         # Légende des axes
         # --------------------------------------------------------------------
-        if X.label is not None:
+        if X.label:
             plt.xlabel(f"{X.label} [{X.unit}]")
 
-        if data.label is not None:
+        if data.label:
             plt.ylabel(f"{data.label} [{data.unit}]")
 
         # --------------------------------------------------------------------
@@ -178,27 +186,16 @@ def myPlot(func):
 
         _ylim = plt.ylim()
 
-        if ylim is not None:
+        if ylim:
             plt.ylim(ylim)
-    #         else:
-    #             _y0 = np.sign(_ylim[0]) * dY * \
-    #             np.ceil(np.abs(np.float(_ylim[0]))/dY) \
-    #             if np.float(_ylim[0]) % dY != 0 else _ylim[0]
-    #
-    #             _y1 = np.sign(_ylim[1]) * dY * \
-    #             np.ceil(np.abs(np.float(_ylim[1]))/dY) \
-    #             if np.float(_ylim[1]) % dY != 0 else _ylim[1]
-    #
-    #             print(_y0, _y1)
-    #             plt.ylim(_y0, _y1)
 
-        if bokeh is True:
+        if bokeh:
             from bokeh import mpl
             from bokeh.plotting import output_notebook, show
             output_notebook()
             show(mpl.to_bokeh())
 
-        if fileName is not None:
+        if fileName:
             print("Save file as " + fileName)
             plt.savefig(fileName, bbox_inches='tight')
 
