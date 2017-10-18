@@ -15,6 +15,7 @@ from scipy.interpolate import dfitpack, fitpack
 import xml.etree.ElementTree as ET
 from lerp.intern import logger, myPlot
 from lerp.core.config import get_option
+from functools import partial
 
 # Using abc for practice purpose.
 import abc
@@ -47,6 +48,59 @@ class mesh(abc.ABC):
     ----------
     """
 
+    def __init_subclass__(cls, ndim=None, *pargs, **kwargs):
+
+        axs = "xyzvw"[:ndim-1]
+
+        cls._options = {
+            "extrapolate": True,
+            "step": True
+        }
+
+        def get_value(self, axis=None):
+            return getattr(self, f"_{axis}")
+
+        def set_value(self, value, axis=None):
+            obj = getattr(self, f"_{axis}")
+            setattr(self, f"_{axis}",
+                    obj.__class__(value, **obj.__dict__))
+
+        def setd(self, obj):
+            self._d = obj
+
+        cls.d = property(fget=partial(get_value, axis="d"),
+                         fset=setd)
+
+        for ax in axs:
+            setattr(cls, ax,
+                    property(fget=partial(get_value, axis=ax),
+                             fset=partial(set_value, axis=ax)))
+
+        # dynamicaly write special methods
+        setattr(cls, "__neg__",
+                lambda self : self.__class__(**{ax:getattr(self, f"_{ax}")
+                                                for ax in axs},
+                                             d=-self.d, label=self.label,
+                                             unit=self.unit))
+
+#        setattr(cls, "__neg__",
+
+#    def __iter__(self):
+#        for (i, j), elem in np.ndenumerate(self.d):
+#            yield (self.x[i], self.y[j], (i, j), elem)
+# for *i, val in np.ndenumerate(np.random.random(size=(3,3,3))):
+#    print(i)
+
+
+    @property
+    def options(self):
+        from lerp.util import DictWrapper
+        return DictWrapper(self._options)
+
+    def update(self, **kwargs):
+        for _arg in kwargs:
+            setattr(self, _arg, kwargs[_arg])
+
     def __dir__(self):
         return sorted([f for f in dir(self.__class__)
                        if not (f.startswith('_') |
@@ -54,7 +108,7 @@ class mesh(abc.ABC):
                       key=lambda x: x.lower())
 
     def __len__(self):
-        return self.d.size
+        return self._d.size
 
     def __sub__(self, obj):
         return self.__add__(-obj)
@@ -136,6 +190,19 @@ class mesh(abc.ABC):
     def median(self, *args, **kwargs):
         """Median calculation."""
         return self.d.median(*args, **kwargs)
+
+    def copy(self, axes=None):
+        from copy import copy
+        ndim = self.d.ndim
+        axs = set(axes) & set("xyzvw"[:ndim])
+
+        return copy(self)
+        # ndim = self.d.ndim
+        # axs = "xyzvw"[:ndim]
+        # return self.__class__(**{ax:getattr(self, f"_{ax}")
+        #                                for ax in axs},
+        #                             d=self.d, label=self.label,
+        #                             unit=self.unit))
 
 
 class BreakPoints(np.ndarray):
@@ -297,6 +364,7 @@ class BreakPoints(np.ndarray):
         _dict = {_k: self.__dict__[_k] for _k in
                  (set(self.__dict__.keys()) -
                   set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
+
         res = self.__class__(np.apply_along_axis(f, 0, np.array(self)),
                              **_dict)
         if not inplace:
@@ -400,16 +468,7 @@ class BreakPoints(np.ndarray):
 mesh1d = BreakPoints
 
 
-class _Opt(dict):
-    def __setitem__(self, key, value):
-        if key == 'message':
-            dict.__setitem__(self, 'message', '')
-            dict.__setitem__(self, 'last_message', value)
-        else:
-            dict.__setitem__(self, key, value)
-
-
-class mesh2d(mesh):
+class mesh2d(mesh, ndim=2):
     """
     Fundamental 2D object, strict monotonic
 
@@ -444,16 +503,12 @@ class mesh2d(mesh):
                  contiguous=False, step=False,
                  **kwargs):
 
-        self._options = {}
+        self.options.extrapolate = extrapolate
+        self.options.step = step
 
         if 'options' in kwargs:
             self._options = {**kwargs['options'],
                              **self.options}
-
-        self.options['extrapolate'] = extrapolate
-        self.options['step'] = step
-
-        # self.options.__setitem__ = self._setoptitem(self.options.__setitem__)
 
         if clipboard:
             self.read_clipboard()
@@ -468,36 +523,11 @@ class mesh2d(mesh):
         self.label = label
         self.unit = unit
 
-    def _setoptitem(self, func):
-        # Decoration
-        def wrapper(func):
-            func()
-            if self._options['extrapolate']:
-                self.__call__ = self.extrapolate
-            else:
-                self.__call__ = self.interpolate
-        return wrapper
-
     @property
-    def options(self):
-        # print("options...")
-        return self._options
-
-    @property
-    def x(self):
-        return self._x
-
-    @x.setter
-    def x(self, obj):
-        self._x = self._x.__class__(obj, **self._x.__dict__)
-
-    @property
-    def d(self):
-        return self._d
-
-    @d.setter
-    def d(self, obj):
-        self._d = obj
+    def __dict_raw__(self):
+        return {_k: self.__dict__[_k] for _k in
+                (set(self.__dict__.keys()) -
+                 set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
 
     def __add__(self, obj):
         """
@@ -546,7 +576,7 @@ class mesh2d(mesh):
         In [6]: A.options
         Out[6]: {'extrapolate': True}
 
-        In [7]: A.options['extrapolate'] = False
+        In [7]: A.options.extrapolate = False
 
         In [8]: A + B
         Out[8]:
@@ -589,11 +619,10 @@ class mesh2d(mesh):
         mesh2d
 
         """
-        new_args = deepcopy(self.__dict__)
+        new_args = deepcopy(self)
         if isinstance(obj, Number):
             # Casting rule from numpy
-            new_args['d'] = np.multiply(self.d, obj)
-            return self.__class__(**new_args)
+            return new_args.update(d=np.multiply(self.d, obj))
         elif isinstance(obj, mesh2d):
             new_args['x'] = np.union1d(self.x, obj.x)
             new_args['d'] = [self(_x) * obj(_x) for _x in new_args['x']]
@@ -619,9 +648,6 @@ class mesh2d(mesh):
             logger.warning(f"Multiplyng {obj.__class__.__name__} to "
                            f"{self.__class__.__name__} failed")
 
-    def __neg__(self):
-        return self.__class__(x=self.x, d=-self.d)
-
     def __getitem__(self, i=None):
         if isinstance(i, Number):
             return (self.x[i], self.d[i])
@@ -643,8 +669,7 @@ class mesh2d(mesh):
         #   def __next__(self):
 
     def __repr__(self):
-        return 'x = {}\nd = {}'. \
-            format(self.x.__repr__(), self.d.__repr__())
+        return f"x = {self.x.__repr__()}\nd = {self.d.__repr__()}"
 
     def _repr_html_(self):
         max_rows = get_option("display.max_rows")
@@ -712,7 +737,7 @@ class mesh2d(mesh):
     def __call__(self, x, *args, **kwargs):
         """Best results with numpy
         """
-        if self.options['extrapolate']:
+        if self.options.extrapolate:
             return self.extrapolate(x=x, *args, **kwargs)
         else:
             return self.interpolate(x=x, *args, **kwargs)
@@ -769,23 +794,19 @@ class mesh2d(mesh):
             Depends if inplace is set to False or True
 
         """
-        _dict = {_k: self.__dict__[_k] for _k in
-                 (set(self.__dict__.keys()) -
-                  set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
         if axis == "d":
             if inplace:
                 self.d.apply(f, inplace)
             else:
                 return self.__class__(x=self.x, d=self.d.apply(f),
-                                      **_dict)
-                # return mesh2d(self.x, self.d.apply(f))
+                                      **self.__dict_raw__)
+
         elif axis == "x":
             if inplace:
                 self.x.apply(f, inplace)
             else:
                 return self.__class__(x=self.x.apply(f), d=self.d,
-                                      **_dict)
-                # return mesh2d(self.x.apply(f), self.d)
+                                      **self.__dict_raw__)
         else:
             print("apply used on non existing axis")
 
@@ -971,11 +992,8 @@ class mesh2d(mesh):
             print("Pas importable")
 
     def resample(self, x):
-        _dict = {_k: self.__dict__[_k] for _k in
-                 (set(self.__dict__.keys()) -
-                  set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
         return self.__class__(x=mesh1d(x, **self.x.__dict__),
-                              d=self(x), **_dict)
+                              d=self(x), **self.__dict_raw__)
 
     def to_clipboard(self, transpose=False, decimal=","):
         def set_clipboard(text):
@@ -1045,7 +1063,7 @@ class mesh2d(mesh):
         return np.diff(self.d) / np.diff(self.x)
 
 
-class mesh3d(mesh):
+class mesh3d(mesh, ndim=3):
     """
     Interpolate over a 2-D grid.
 
@@ -1149,7 +1167,7 @@ class mesh3d(mesh):
             The interpolated values.
 
         """
-        if self.options['extrapolate']:
+        if self.options.extrapolate:
             return self.extrapolate(x=x, y=y, *args, **kwargs)
         else:
             return self.interpolate(x=x, y=y, *args, **kwargs)
@@ -1200,8 +1218,7 @@ class mesh3d(mesh):
         self.label = label
         self.unit = unit
 
-        self.options = {}
-        self.options['extrapolate'] = extrapolate
+        self.options.extrapolate = extrapolate
 
         self._x = mesh1d(x, label=x_label, unit=x_unit) \
             if "_x" not in kwargs else kwargs["_x"]
@@ -1216,26 +1233,6 @@ class mesh3d(mesh):
             self.read_clipboard()
 
         self.reshape(sort=sort)
-
-    @property
-    def x(self):
-        return self._x
-
-    @x.setter
-    def x(self, obj):
-        self._x = self._x.__class__(obj, **self._x.__dict__)
-
-    @property
-    def y(self):
-        return self._y
-
-    @y.setter
-    def y(self, obj):
-        self._y = self._y.__class__(obj, **self._y.__dict__)
-
-    def __neg__(self):
-        return self.__class__(x=self._x, y=self._y, d=-self.d,
-                              label=self.label, unit=self.unit)
 
     def _repr_html_(self):
         max_rows = get_option("display.max_rows")
@@ -1325,7 +1322,7 @@ class mesh3d(mesh):
 
         def _get_m2d(slx, slw):
             return mesh2d(x=slx, d=mesh1d(slw, self.label, self.unit),
-                          extrapolate=self.options['extrapolate'])
+                          extrapolate=self.options.extrapolate)
 
         try:
             if len(sl) == 2:
@@ -1345,7 +1342,7 @@ class mesh3d(mesh):
             return self.__class__(x=self._x[slx], y=self._y[sly],
                                   d=self.d[slx, sly], label=self.label,
                                   unit=self.unit,
-                                  extrapolate=self.options['extrapolate'])
+                                  extrapolate=self.options.extrapolate)
         elif not isXslice and isYslice:
             return _get_m2d(self._y[sly], self.d[slx, sly])
         elif isXslice and not isYslice:
@@ -1486,21 +1483,21 @@ class mesh3d(mesh):
         # x or y is numeric
         elif isxN | isyN:
             # Save extrapolate status in options before setting to True
-            extrapolate = self.options['extrapolate']
-            self.options['extrapolate']
+            extrapolate = self.options.extrapolate
+            self.options.extrapolate
             if isxN:
                 y = self._y if y is None \
                     else self._y.__class__(y, **self._y.__dict__)
                 res = mesh2d(y, mesh1d([self(x, _y) for _y in y],
                                        self.label, self.unit))
-                self.options['extrapolate'] = extrapolate
+                self.options.extrapolate = extrapolate
                 return res
             else:
                 x = self._x if x is None \
                     else self._x.__class__(x, **self._x.__dict__)
                 res = mesh2d(x, mesh1d([self(_x, y) for _x in x],
                                        self.label, self.unit))
-                self.options['extrapolate'] = extrapolate
+                self.options.extrapolate = extrapolate
                 return res
                 # Either x nor y is numeric
         else:
@@ -1617,7 +1614,7 @@ class mesh3d(mesh):
                               sort=False)
 
 
-class mesh4d(mesh):
+class mesh4d(mesh, ndim=4):
     """
     """
 
@@ -1632,8 +1629,8 @@ class mesh4d(mesh):
         self.label = label
         self.unit = unit
 
-        self.options = {}
-        self.options['extrapolate'] = extrapolate
+        self._options = {}
+        self.options.extrapolate = extrapolate
 
         self._x = mesh1d(x, label=x_label, unit=x_unit)
         self._y = mesh1d(y, label=y_label, unit=y_unit)
@@ -1644,43 +1641,12 @@ class mesh4d(mesh):
         self.reshape()
 
     @property
-    def x(self):
-        return self._x
-
-    @x.setter
-    def x(self, obj):
-        self._x = self._x.__class__(obj, **self._x.__dict__)
-
-    @property
-    def y(self):
-        return self._y
-
-    @y.setter
-    def y(self, obj):
-        self._y = self._y.__class__(obj, **self._y.__dict__)
-
-    @property
-    def z(self):
-        return self._z
-
-    @z.setter
-    def z(self, obj):
-        self._z = self._z.__class__(obj, **self._z.__dict__)
-
-    @property
     def shape(self):
         return self.d.shape
 
     def __add__(self, other):
         return self.__class__(x=self._x, y=self._y, z=self._z,
                               d=self.d + other, label=self.label,
-                              unit=self.unit, **self.options)
-
-    def __neg__(self):
-        """
-        """
-        return self.__class__(x=self._x, y=self._y, z=self._z,
-                              d=-self.d, label=self.label,
                               unit=self.unit, **self.options)
 
     def __eq__(self, other):
@@ -1708,12 +1674,12 @@ class mesh4d(mesh):
 
         def _get_m2d(slx, slw):
             return mesh2d(x=slx, y=mesh1d(slw, self.label, self.unit),
-                          extrapolate=self.options['extrapolate'])
+                          extrapolate=self.options.extrapolate)
 
         def _get_m3d(slx, sly, w):
             return mesh3d(x=slx, y=sly, d=w,
                           label=self.label, unit=self.unit,
-                          extrapolate=self.options['extrapolate'])
+                          extrapolate=self.options.extrapolate)
 
         try:
             if len(sl) == 2:
@@ -1741,7 +1707,7 @@ class mesh4d(mesh):
             return self.__class__(x=self._x[slx], y=self._y[sly],
                                   z=self._z[slz], d=self.d[slx, sly, slz],
                                   label=self.label, unit=self.unit,
-                                  extrapolate=self.options['extrapolate'])
+                                  extrapolate=self.options.extrapolate)
 
         elif isXslice and isYslice and not isZslice:
             return _get_m3d(self._x[slx], self._y[sly], self.d[slx, sly, slz])
@@ -1763,7 +1729,7 @@ class mesh4d(mesh):
     def __call__(self, x=None, y=None, z=None, *args, **kwargs):
         """Best results with numpy
         """
-        if self.options['extrapolate']:
+        if self.options.extrapolate:
             logger.warning(f"Extrapolation not implented in "
                            f" {self.__class__.__name__}")
             return self.interpolate(x=x, y=y, z=z, *args, **kwargs)
@@ -1965,7 +1931,7 @@ class mesh4d(mesh):
                 {fileName} not found")
 
 
-class mesh5d(mesh):
+class mesh5d(mesh, ndim=5):
     """
     """
 
@@ -1982,7 +1948,7 @@ class mesh5d(mesh):
         self.unit = unit
 
         self.options = {}
-        self.options['extrapolate'] = extrapolate
+        self.options.extrapolate = extrapolate
 
         self._x = mesh1d(x, label=x_label, unit=x_unit)
         self._y = mesh1d(y, label=y_label, unit=y_unit)
@@ -1995,38 +1961,6 @@ class mesh5d(mesh):
         self.reshape()
 
     @property
-    def x(self):
-        return self._x
-
-    @x.setter
-    def x(self, obj):
-        self._x = self._x.__class__(obj, **self._x.__dict__)
-
-    @property
-    def y(self):
-        return self._y
-
-    @y.setter
-    def y(self, obj):
-        self._y = self._y.__class__(obj, **self._y.__dict__)
-
-    @property
-    def z(self):
-        return self._z
-
-    @z.setter
-    def z(self, obj):
-        self._z = self._z.__class__(obj, **self._z.__dict__)
-
-    @property
-    def v(self):
-        return self._v
-
-    @v.setter
-    def v(self, obj):
-        self._v = self._v.__class__(obj, **self._v.__dict__)
-
-    @property
     def shape(self):
         return self.d.shape
 
@@ -2034,14 +1968,6 @@ class mesh5d(mesh):
         return self.__class__(x=self._x, y=self._y, z=self._z,
                               v=self._v,
                               d=self.d + other, label=self.label,
-                              unit=self.unit, **self.options)
-
-    def __neg__(self):
-        """
-        """
-        return self.__class__(x=self._x, y=self._y, z=self._z,
-                              v=self._v,
-                              d=-self.d, label=self.label,
                               unit=self.unit, **self.options)
 
     def reshape(self):

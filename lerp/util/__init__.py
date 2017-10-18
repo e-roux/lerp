@@ -276,3 +276,39 @@ def path_name_ext(path):
     _r, _n = os.path.split(_p)
 
     return out(_r, _n, _e)
+
+
+
+# Modified from pandas config.py
+class DictWrapper(object):
+    """ provide attribute-style access to a nested dict"""
+
+    def __init__(self, d, prefix=""):
+        object.__setattr__(self, "d", d)
+        object.__setattr__(self, "prefix", prefix)
+
+    def __setattr__(self, key, val):
+        prefix = object.__getattribute__(self, "prefix")
+        if prefix:
+            prefix += "."
+        prefix += key
+        # you can't set new keys
+        # you can't overwrite subtrees
+        if key in self.d and not isinstance(self.d[key], dict):
+            self.d[key] = val
+        else:
+            raise OptionError("You can only set the value of existing options")
+
+    def __getattr__(self, key):
+        prefix = object.__getattribute__(self, "prefix")
+        if prefix:
+            prefix += "."
+        prefix += key
+        v = object.__getattribute__(self, "d")[key]
+        if isinstance(v, dict):
+            return DictWrapper(v, prefix)
+        else:
+            return v
+
+    def __dir__(self):
+        return list(self.d.keys())
