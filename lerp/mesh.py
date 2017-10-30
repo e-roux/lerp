@@ -16,6 +16,7 @@ import xml.etree.ElementTree as ET
 from lerp.intern import logger, myPlot
 from lerp.core.config import get_option
 from functools import partial
+import inspect
 
 # Using abc for practice purpose.
 import abc
@@ -50,6 +51,20 @@ class mesh(abc.ABC):
 
     def __init_subclass__(cls, ndim=None, *pargs, **kwargs):
 
+        for _cls in inspect.getmro(cls):
+            if _cls.__name__ == "mesh2d":
+                ndim = 2
+                break
+            elif _cls.__name__ == "mesh3d":
+                ndim = 3
+                break
+            elif _cls.__name__ == "mesh4d":
+                ndim = 4
+                break
+            elif _cls.__name__ == "mesh5d":
+                ndim = 5
+                break
+
         axs = "xyzvw"[:ndim-1]
 
         cls._options = {
@@ -83,13 +98,13 @@ class mesh(abc.ABC):
                                              d=-self.d, label=self.label,
                                              unit=self.unit))
 
-#        setattr(cls, "__neg__",
+        #        setattr(cls, "__neg__",
 
-#    def __iter__(self):
-#        for (i, j), elem in np.ndenumerate(self.d):
-#            yield (self.x[i], self.y[j], (i, j), elem)
-# for *i, val in np.ndenumerate(np.random.random(size=(3,3,3))):
-#    print(i)
+        #    def __iter__(self):
+        #        for (i, j), elem in np.ndenumerate(self.d):
+        #            yield (self.x[i], self.y[j], (i, j), elem)
+        # for *i, val in np.ndenumerate(np.random.random(size=(3,3,3))):
+        #    print(i)
 
 
     @property
@@ -1315,28 +1330,24 @@ class mesh3d(mesh, ndim=3):
     def __getitem__(self, sl):
         """
         """
-        global isXslice
-        isXslice = False
-        global isYslice
-        isYslice = False
-
         def _get_m2d(slx, slw):
-            return mesh2d(x=slx, d=mesh1d(slw, self.label, self.unit),
+            return mesh2d(x=slx,
+                          d=mesh1d(slw, self.label, self.unit),
                           extrapolate=self.options.extrapolate)
 
+        # Unpack slice sl in x and y compound
+        slx, sly, *opts = sl if isinstance(sl, tuple) \
+            else (sl, slice(None, None, None))
+
         try:
-            if len(sl) == 2:
-                slx, sly = sl
-                # slice, list, np.ndarray
-                if hasattr(slx, "__getitem__"):
-                    isXslice = len(self.x[slx]) > 1 or False
-                if hasattr(sly, "__getitem__"):
-                    isYslice = len(self.y[sly]) > 1 or False
-        except:
-            slx, sly = sl, slice(None, None, None)
-            if isinstance(slx, slice):
-                isXslice = len(self.x[slx]) > 1 or False
-            isYslice = True
+            isXslice = len(self.x[slx]) > 1 or False
+        except TypeError:
+            isXslice = False
+
+        try:
+            isYslice = len(self.y[sly]) > 1 or False
+        except TypeError:
+            isYslice = False
 
         if isXslice and isYslice:
             return self.__class__(x=self._x[slx], y=self._y[sly],
