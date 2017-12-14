@@ -49,8 +49,7 @@ def _axisnormalize(func):
 
         ndim = self.ndim
         assert ndim > axis, \
-            ValueError(f"axis ({axis}) must be in "
-                       f"[{','.join(self.axes)}]")
+            ValueError(f"axis ({axis}) must be in [{','.join(self.axes)}]")
 
         assert type(axis) is int, TypeError("Error converting axis to integer.")
         kwargs["axis"] = axis
