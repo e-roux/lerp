@@ -14,7 +14,7 @@ Content
 .. toctree::
     :maxdepth: 1
 
-    _src/lerp.ipynb
+    _src/notebooks/lerp.ipynb
     _src/mesh
     _src/polymesh
     _src/api
