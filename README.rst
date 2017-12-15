@@ -45,3 +45,13 @@ License
 -------
 
 MIT -- see the file ``LICENSE`` for details.
+
+.. N-D Lookup tables for Modelica
+.. http://www.ep.liu.se/ecp/096/092/ecp14096092.pdf
+
+.. N-D Lookup tables for Modelica
+.. SCIENTIFIC DATA FORMAT
+.. https://fr.slideshare.net/Modelon/nd-lookup-tables-for-modelica
+
+.. Matlab
+.. http://de.mathworks.com/help/simulink/slref/ndlookuptable.html

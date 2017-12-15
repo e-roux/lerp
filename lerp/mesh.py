@@ -19,6 +19,20 @@ from functools import (partial, wraps)
 import inspect
 
 import abc
+from enum import IntEnum
+
+
+class _LookUpEnum(IntEnum):
+    """Provide enumeration of lookup type and associated ctypes
+    for usage of NDTable.
+    """
+    @property
+    def ctype(self):
+        return c_int(self.value)
+
+INTERP_METH = _LookUpEnum('INTERP_METH', 'hold nearest linear akima fritsch_butland steffen')
+EXTRAP_METH = _LookUpEnum('EXTRAP_METH', 'hold linear')
+
 
 axis = namedtuple('axis', ['label', 'unit'])
 
