@@ -18,3 +18,8 @@ docs/lerp.log
 sample/
 src/util.py
 tests/
+lerp/C/trash
+lerp/C/NDTable
+lerp/mesh22.py
+build*
+lerp/core/*.so

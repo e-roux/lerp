@@ -10,6 +10,7 @@ from copy import (copy, deepcopy)
 from itertools import islice, product
 from numbers import Number
 import numpy as np
+
 from numpy.core.multiarray import interp as interp2d
 from scipy.interpolate import dfitpack, fitpack
 import xml.etree.ElementTree as ET
@@ -17,21 +18,13 @@ from lerp.intern import logger, myPlot
 from lerp.core.config import get_option
 from functools import (partial, wraps)
 import inspect
-
+from os import path
+import sys
+from ctypes import c_void_p, c_int, cdll
+from numpy.ctypeslib import ndpointer
 import abc
-from enum import IntEnum
-
-
-class _LookUpEnum(IntEnum):
-    """Provide enumeration of lookup type and associated ctypes
-    for usage of NDTable.
-    """
-    @property
-    def ctype(self):
-        return c_int(self.value)
-
-INTERP_METH = _LookUpEnum('INTERP_METH', 'hold nearest linear akima fritsch_butland steffen')
-EXTRAP_METH = _LookUpEnum('EXTRAP_METH', 'hold linear')
+from lerp.core.interpolation import *
+from xarray import DataArray
 
 
 axis = namedtuple('axis', ['label', 'unit'])
@@ -79,7 +72,552 @@ def _StyledSubElement(parent, child):
 ET.StyledSubElement = _StyledSubElement
 
 
-class mesh(abc.ABC):
+
+class Mesh(DataArray):
+    """
+    # Code example
+
+    from lerp.mesh import Mesh
+
+    np.random.seed(123)
+    m3d = Mesh(x=[1, 2, 3, 6], y=[13, 454, 645, 1233, 1535],
+               data=np.random.randn(4, 5),
+               label="le label")
+
+
+   with plt.style.context('ggplot'):
+        plt.figure(figsize=(16,9))
+        m3d.plot()
+        plt.graphpaper(200, 1)
+
+    """
+    def __init__(self, *pargs, **kwargs):
+
+        AXES = 'xyzvw'
+
+        self._options = {
+            "extrapolate": True,
+            "step": False,
+            "deepcopy": False
+        }
+
+        if 'coords' in kwargs:
+            assert not bool(set(kwargs) & set(kwargs['coords'])), \
+                "Redundant arguments in coords and kwargs"
+
+        self.label = kwargs.pop('label') if 'label' in kwargs else None
+        self.unit = kwargs.pop('unit') if 'unit' in kwargs else None
+
+        # Intern to DataArray
+        # See https://github.com/pydata/xarray/blob/master/xarray/core/dataarray.py
+        if 'fastpath' not in kwargs:
+            if 'coords' not in kwargs:
+                kwargs['coords']= {}
+
+            if 'data' not in kwargs:
+                kwargs['data'] = pargs[-1]
+                pargs = pargs[:-1]
+
+            for _k, _v in zip(AXES, pargs):
+                kwargs['coords'][_k] = _v
+                pargs = []
+
+            dims = set(AXES) & set(kwargs)
+
+            if dims:
+                for d in sorted(dims, key=lambda x : AXES.index(x)):
+                    kwargs['coords'][d] = kwargs.pop(d)
+
+            kwargs['dims'] = tuple(kwargs['coords'].keys())
+
+        super(Mesh, self).__init__(*pargs, **kwargs)
+
+    @property
+    def options(self):
+        from lerp.util import DictWrapper
+        return DictWrapper(self._options)
+
+    def __call__(self, *pargs, **kwargs):
+        """
+        Interpolate the function.
+
+        Parameters
+        ----------
+        x  : 1D array
+            x-coordinates of the mesh on which to interpolate.
+        y : 1D array
+            y-coordinates of the mesh on which to interpolate.
+
+        Returns
+        -------
+            2D array with shape (len(x), len(y))
+            The interpolated values.
+        """
+        if self.options.step:
+            kwargs.pop('interp', None)
+            kwargs.pop('extrap', None)
+            return self.interpolation(interp="hold", extrap='hold',
+                                      *pargs, **kwargs)
+        else:
+            if self.options.extrapolate and 'extrap' not in kwargs:
+                kwargs.pop('extrap', None)
+                return self.interpolation(extrap='linear', *pargs, **kwargs)
+            else:
+                return self.interpolation(*pargs, **kwargs)
+
+    def interpolation(self, *points, interp='linear', extrap='hold'):
+        return _interpol(self, *points, interp=interp, extrap=extrap)
+
+    # Plot MAP as PDF in filename
+    def plot(self, xy=False, filename=None, **kwargs):
+
+        import matplotlib.pyplot as plt
+
+        if self.label is None:
+            self.label = ""
+        if self.unit is None:
+            self.unit = ""
+
+        plt.xlabel(f"{self.y.label} [{self.y.unit}]"
+                   if self.y.label is not None else "Label []")
+        plt.ylabel(self.label + ' [' + self.unit + ']')
+
+        for _i, _x in enumerate(self.x.data):
+            # print("plot {}".format(_x))
+            plt.plot(self.y, self.data[_i], '-', linewidth=1,
+                          label=u"{} {}".format(_x, self.x.unit), **kwargs)
+
+        plt.legend(loc=2, borderaxespad=0., frameon=0)
+
+        if filename is not None:
+            print("Save file as " + filename)
+            plt.savefig(filename, bbox_inches='tight')
+
+
+class Mesh_old(object):
+    """Docstring.
+
+    Parameters
+    ----------
+    """
+
+    def __new__(cls, *pargs, **kwargs):
+
+        """
+        pargs peut contenir des vecteurs "breakpoints"
+        ils peuvent être renseignés également en passant des
+        arguments nommés dans kwargs
+        """
+        cls.axes = set("xyzvw") & set(kwargs)
+        cls.ndim = len(cls.axes)
+
+        cls._options = {
+            "extrapolate": True,
+            "step": False,
+            "deepcopy": False
+        }
+
+        def get_value(self, axis=None):
+            # if "_NDTable" in self.__dict__:
+            #    del self._NDTable
+            return getattr(self, f"_{axis}")
+
+        def set_value(self, value, axis=None):
+            obj = getattr(self, f"_{axis}")
+            setattr(self, f"_{axis}",
+                    obj.__class__(value, **obj.__dict__))
+
+        def setd(self, obj):
+            self._d = obj
+
+        cls.d = property(fget=partial(get_value, axis="d"),
+                         fset=setd)
+
+        for axe in cls.axes:
+            print(f"Got : {axe} -> {kwargs[axe]}")
+            setattr(cls, f"_{axe}", BreakPoints(kwargs[axe]))
+            setattr(cls, axe,
+                    property(fget=partial(get_value, axis=axe),
+                             fset=partial(set_value, axis=axe)))
+
+        # dynamicaly write special methods
+
+        setattr(cls, "__neg__",
+                lambda self : self.__class__(**{ax:getattr(self, f"_{ax}")
+                                                for ax in cls.axes},
+                                             d=-self.d, label=cls.label,
+                                             unit=self.unit))
+
+        for method in ["argmax", "argmin", "unique", "min",
+                       "max", "mean", "median"]:
+            setattr(cls, method,
+                lambda cls, *args, **kwargs : getattr(np, method)(cls._d, *args, **kwargs))
+
+        if cls.axes:
+            if "_d" not in dir(cls):
+                cls._d = np.zeros([len(getattr(cls, f"_{axe}")) for axe in cls.axes])
+
+        return cls
+
+    def __call__(self, *pargs, **kwargs):
+        """
+        Interpolate the function.
+
+        Parameters
+        ----------
+        x  : 1D array
+            x-coordinates of the mesh on which to interpolate.
+        y : 1D array
+            y-coordinates of the mesh on which to interpolate.
+
+        Returns
+        -------
+            2D array with shape (len(x), len(y))
+            The interpolated values.
+        """
+        if self.options.step:
+            kwargs.pop('interp', None)
+            kwargs.pop('extrap', None)
+            return self.interpolation(interp="hold", extrap='hold',
+                                      *pargs, **kwargs)
+        else:
+            if self.options.extrapolate and 'extrap' not in kwargs:
+                kwargs.pop('extrap', None)
+                return self.interpolation(extrap='linear', *pargs, **kwargs)
+            else:
+                return self.interpolation(*pargs, **kwargs)
+
+    @property
+    def options(self):
+        from lerp.util import DictWrapper
+        return DictWrapper(self._options)
+
+    def __dir__(self):
+        return sorted([f for f in dir(self.__class__)
+                       if not (f.startswith('_') |
+                               ('deprecated' in repr(getattr(self, f))))],
+                      key=lambda x: x.lower())
+
+    def __eq__(self, other):
+
+        if all((np.all(getattr(self, _axis) == getattr(other, _axis))
+                for _axis in self.axes)):
+            if self.label != other.label:
+                print(f"Labels are differents : {self.label} / {other.label}")
+            if self.unit != other.unit:
+                print("Units are differents : {self.unit} / {other.unit}")
+            return True
+        else:
+            return False
+
+    def __len__(self):
+        return self._d.size
+
+    def __sub__(self, obj):
+        return self.__add__(-obj)
+
+    def _repr_html_(self):
+        max_rows = get_option("display.max_rows")
+
+        root = ET.Element('div')
+        pre = ET.SubElement(root, 'p')
+        ET.SubElement(pre, 'code').text = f"{self.__class__.__name__ }: "
+        ET.SubElement(pre, 'b').text = self.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+        ET.SubElement(pre, 'br')
+
+        for _a in self.axes:
+            axis = getattr(self, _a)
+            root.append(ET.fromstring(axis._repr_html_()))
+
+        return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
+
+    def apply(self, func, axis="d", inplace=False):
+        """Apply a function along axis
+
+        Parameters
+        ----------
+        func :   function
+        axis:    string
+        inplace: boolean
+                 True for inplcae mofication
+
+        Returns
+        -------
+        obj if inplace is True
+
+        """
+        axislist = set(self.__dict__.keys()) & {f"_{a}" for a in "xyzvwd"}
+        assert f"_{axis}" in axislist, ValueError(f"{axis} must be ",
+                                            ", ".join(axislist))
+
+        obj = self if inplace else copy(self)
+
+        # Apply function
+        setattr(obj, axis,
+                np.apply_along_axis(func, 0, getattr(self, axis))
+                )
+
+        if not inplace:
+            return obj
+
+    def copy(self):
+        return deepcopy(self) if self.options.deepcopy else copy(self)
+
+    @_axisnormalize
+    def diff(self, axis=0, n=1):
+        """
+        """
+        out = copy(self)
+        setattr(out, "xyzvw"[axis],
+                getattr(out, "xyzvw"[axis])[:-n])
+        out.d = np.diff(out.d, n=n, axis=axis)
+        return out
+
+    def dropnan(self):
+        """Drop NaN values and return new mesh2d."""
+        axislist = set(self.__dict__.keys()) & {f"_{a}" for a in "xyzvw"}
+        return self[~np.isnan(self.x)]
+
+    @property
+    def shape(self):
+        """Get object shape."""
+        mylen = (len(getattr(self, _a)) for _a in self.axes)
+        return tuple(mylen)
+
+    def read_pickle(self, fileName=None):
+        """Read from pickle."""
+        try:
+            fileName = os.path.normpath(fileName)
+            os.path.exists(fileName)
+            with open(fileName, 'rb') as f:
+                # The protocol version used is detected automatically,
+                # so we do not have to specify it.
+                data = pickle.load(f)
+            return data
+        except OSError:
+            raise FileNotFoundError(f"Please check your path, "
+                                    f"{fileName} not found.")
+
+    def reshape(self, sort=True):
+        """
+        """
+        assert all(self.shape), \
+            ValueError(f"One axis has at least dim zero")
+
+        self.d = np.reshape(self.d, self.shape)
+        self.sort()
+
+    def to_pickle(self, fileName=None):
+        """Simple export to pickle."""
+        try:
+            fileName = os.path.normpath(fileName)
+            with open(fileName, 'wb') as f:
+                pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        except OSError:
+            raise FileNotFoundError(f"Please check your path, "
+                                    f"{fileName} not found.")
+
+    # TODO : check dtype
+    @_axisnormalize
+    def push(self, s=None, d=None, axis=0, inplace=False):
+        """
+        # s: support point ; d = data (np.array de dimension n * 1)
+        """
+        _axe = getattr(self, self.axes[axis])
+        w2add = np.zeros(len(_axe))
+        w2add.put(np.arange(len(d)), d)
+
+        if s not in _axe:
+            at = np.searchsorted(_axe, s)
+            setattr(self, self.axes[axis],
+                    _axe.insert(at, s))
+
+            if self.d.size > 0:
+                self.d = np.insert(self.d, at, w2add, axis=axis)
+            else:
+                self.d = [np.array(w2add)]
+        else:
+            print("push: Value already defined at {}".format(s))
+
+        self.reshape()
+
+
+    @_axisnormalize
+    def append(self, arr, values, axis=None, inplace=False):
+        """
+        Append values to a mesh.
+
+        Parameters
+        ----------
+        arr : array_like
+            Values a.
+        values : array_like
+            These values are appended to a copy of `arr`.  It must be of the
+            correct shape (the same shape as `arr`, excluding `axis`).  If
+            `axis` is not specified, `values` can be any shape and will be
+            flattened before use.
+        axis : int, optional
+            The axis along which `values` are appended.  If `axis` is not
+            given, both `arr` and `values` are flattened before use.
+        Returns
+        -------
+        append : ndarray
+            A copy of `arr` with `values` appended to `axis`.  Note that
+            `append` does not occur in-place: a new array is allocated and
+            filled.  If `axis` is None, `out` is a flattened array.
+        """
+        _axe = getattr(self, self.axes[axis])
+        w2add = np.zeros(len(_axe))
+        w2add.put(np.arange(len(d)), d)
+
+        if s not in _axe:
+            at = np.searchsorted(_axe, s)
+            setattr(self, self.axes[axis],
+                    _axe.insert(at, s))
+
+            if self.d.size > 0:
+                self.d = np.insert(self.d, at, w2add, axis=axis)
+            else:
+                self.d = [np.array(w2add)]
+        else:
+            print("push: Value already defined at {}".format(s))
+
+        self.reshape()
+
+    def sort(self):
+        """Sort the grid, ascending values."""
+        for _i, _a in enumerate(self.axes):
+            order = [slice(None)] * self.ndim
+            axis = getattr(self, _a)
+            if not np.all(axis[1:] >= axis[:-1]):
+                _o = np.argsort(axis)
+                setattr(self, _a, axis[_o])
+                order[_i] = _o
+                self.d = self.d[order]
+
+    @property
+    def T(self):
+        """Transpose mesh."""
+        obj = copy(self)
+        for axis, axis_t in zip(self.axes, self.axes[::-1]):
+            setattr(obj, axis,
+                    getattr(self, axis_t))
+        obj.d = self.d.T
+        return obj
+
+    def interpolation(self, *points, interp='linear', extrap='hold'):
+        """Purpose of this method is to return a linear interpolation
+        of a d vector for an unknown value x. If the targeted value
+        is out of the x range, the returned d-value is the first,
+        resp. the last d-value.
+
+        No interpolation is made out of the x definition range. For such
+        a functionality, use:py:meth:`extrapolate` instead.
+
+        Parameters
+        ----------
+        x:: iterable or single element,
+
+        kind: str or int, optional
+        Specifies the kind of interpolation as a string ('linear', 'nearest',
+        'zero', 'slinear', 'quadratic', 'cubic' where 'slinear', 'quadratic'
+        and 'cubic' refer to a spline interpolation of first, second or third
+        order) or as an integer specifying the order of the spline
+        interpolator to use. Default is 'linear'.
+
+        Returns
+        -------
+        A single element or a :class:`numpy.array` if the x parameter was
+        a :class:`numpy.array` or a list
+        """
+        return _interpol(self, *points, interp=interp, extrap=extrap)
+
+
+
+    def evaluate_derivative(self, *points, dx=None, interp='linear', extrap='hold'):
+        """Purpose of this method is to return a linear interpolation
+        of a d vector for an unknown value x. If the targeted value
+        is out of the x range, the returned d-value is the first,
+        resp. the last d-value.
+
+        No interpolation is made out of the x definition range. For such
+        a functionality, use:py:meth:`extrapolate` instead.
+
+        Parameters
+        ----------
+        x:: iterable or single element,
+
+        kind: str or int, optional
+        Specifies the kind of interpolation as a string ('linear', 'nearest',
+        'zero', 'slinear', 'quadratic', 'cubic' where 'slinear', 'quadratic'
+        and 'cubic' refer to a spline interpolation of first, second or third
+        order) or as an integer specifying the order of the spline
+        interpolator to use. Default is 'linear'.
+
+        Returns
+        -------
+        A single element or a :class:`numpy.array` if the x parameter was
+        a :class:`numpy.array` or a list
+        """
+        # convert the arguments to double arrays
+        data = np.asanyarray(self.d, dtype=np.float64, order='C')
+        # Convert data shape tuple to array
+        shape = np.asarray(data.shape, np.int32)
+
+        #---------------------------------------------------------
+        # Values to interpolate
+        points = [np.asarray(points[i], np.float64)
+                  for  i, _ in enumerate(points)]
+        values = np.empty(points[0].shape)
+
+        #---------------------------------------------------------
+        # params
+        params = (c_void_p * len(points))()
+        for i, param in enumerate(points):
+            params[i] = param.ctypes.get_as_parameter()
+        #---------------------------------------------------------
+        # breakpoints
+        breakpoints = [np.asanyarray(getattr(self, elt),
+                                     dtype=np.float64, order='C')
+                       for elt in self.axes]
+
+        breakpoints_ = (ndpointer(dtype=np.float64,
+                                  flags='C_CONTIGUOUS') * 32)()
+        for i, scale in enumerate(breakpoints):
+            breakpoints_[i] = scale.ctypes.data
+
+        # Values to interpolate
+        #dx_ = (c_void_p * len(dx))()
+        #dx_[0] = dx.ctypes.get_as_parameter()
+
+
+        dx_ = [np.asarray(dx[i], np.float64)
+                  for  i, _ in enumerate(points)]
+
+        # res = _myEvaluateD(
+        #                   data,
+        #                   c_int(data.ndim),
+        #                   breakpoints_,
+        #                   shape.ctypes.get_as_parameter(),
+        #                   params,
+        #                   c_int(len(params)),
+        #                   INTERP_METH[interp].ctype,
+        #                   EXTRAP_METH[extrap].ctype,
+        #                   c_int(values.size),
+        #                   values.ctypes.get_as_parameter(),
+        #                   dx_.ctypes.get_as_parameter()
+        #                  )
+        # assert res == 0, 'An error occurred during interpolation'
+
+        return values
+
+
+
+
+
+
+class _mesh(abc.ABC):
     """Docstring.
 
     Parameters
@@ -109,11 +647,13 @@ class mesh(abc.ABC):
 
         cls._options = {
             "extrapolate": True,
-            "step": True,
+            "step": False,
             "deepcopy": False
         }
 
         def get_value(self, axis=None):
+            # if "_NDTable" in self.__dict__:
+            #    del self._NDTable
             return getattr(self, f"_{axis}")
 
         def set_value(self, value, axis=None):
@@ -133,31 +673,6 @@ class mesh(abc.ABC):
                              fset=partial(set_value, axis=ax)))
 
         # dynamicaly write special methods
-        def __call__(self, *args, **kwargs):
-            """
-            Interpolate the function.
-
-            Parameters
-            ----------
-            x  : 1D array
-                x-coordinates of the mesh on which to interpolate.
-            y : 1D array
-                y-coordinates of the mesh on which to interpolate.
-
-            Returns
-            -------
-                2D array with shape (len(x), len(y))
-                The interpolated values.
-            """
-            if self.options.step:
-                return self._step(*args, **kwargs)
-            else:
-                if self.options.extrapolate:
-                    return self.extrapolate(*args, **kwargs)
-                else:
-                    return self.interpolate(*args, **kwargs)
-
-        setattr(cls, "__call__", __call__)
 
         setattr(cls, "__neg__",
                 lambda self : self.__class__(**{ax:getattr(self, f"_{ax}")
@@ -168,19 +683,33 @@ class mesh(abc.ABC):
             setattr(cls, method,
                 lambda self, *args, **kwargs : getattr(np, method)(self.d, *args, **kwargs))
 
-            #def unique(self, *args, **kwargs):
-            #    """Return unique element in d."""
-            #    return np.unique(self.d, *args, **kwargs)
-
-
-    def _step(self, x, *args, **kwargs):
+    def __call__(self, *pargs, **kwargs):
         """
+        Interpolate the function.
+
+        Parameters
+        ----------
+        x  : 1D array
+            x-coordinates of the mesh on which to interpolate.
+        y : 1D array
+            y-coordinates of the mesh on which to interpolate.
+
+        Returns
+        -------
+            2D array with shape (len(x), len(y))
+            The interpolated values.
         """
-        i = np.searchsorted(self.x, x)
-        condList = [np.in1d(x, self.x), i > 1]
-        choiceList = [i, i - 1]
-        i = np.select(condList, choiceList)
-        return self.d[i]
+        if self.options.step:
+            kwargs.pop('interp', None)
+            kwargs.pop('extrap', None)
+            return self.interpolation(interp="hold", extrap='hold',
+                                      *pargs, **kwargs)
+        else:
+            if self.options.extrapolate and 'extrap' not in kwargs:
+                kwargs.pop('extrap', None)
+                return self.interpolation(extrap='linear', *pargs, **kwargs)
+            else:
+                return self.interpolation(*pargs, **kwargs)
 
     @property
     def options(self):
@@ -455,6 +984,71 @@ class mesh(abc.ABC):
         obj.d = self.d.T
         return obj
 
+    def interpolation(self, *coordinates, interp='linear', extrap='hold'):
+        """Purpose of this method is to return a linear interpolation
+        of a d vector for an unknown value x. If the targeted value
+        is out of the x range, the returned d-value is the first,
+        resp. the last d-value.
+
+        No interpolation is made out of the x definition range. For such
+        a functionality, use:py:meth:`extrapolate` instead.
+
+        Parameters
+        ----------
+        x:: iterable or single element,
+
+        kind: str or int, optional
+        Specifies the kind of interpolation as a string ('linear', 'nearest',
+        'zero', 'slinear', 'quadratic', 'cubic' where 'slinear', 'quadratic'
+        and 'cubic' refer to a spline interpolation of first, second or third
+        order) or as an integer specifying the order of the spline
+        interpolator to use. Default is 'linear'.
+
+        Returns
+        -------
+        A single element or a :class:`numpy.array` if the x parameter was
+        a :class:`numpy.array` or a list
+        """
+        return _interpol(self, *coordinates, interp=interp, extrap=extrap)
+
+
+    def evaluate_derivative(self, *points, dx=None, interp='linear', extrap='hold'):
+        """Purpose of this method is to return a linear interpolation
+        of a d vector for an unknown value x. If the targeted value
+        is out of the x range, the returned d-value is the first,
+        resp. the last d-value.
+
+        No interpolation is made out of the x definition range. For such
+        a functionality, use:py:meth:`extrapolate` instead.
+
+        Parameters
+        ----------
+        x:: iterable or single element,
+
+        kind: str or int, optional
+        Specifies the kind of interpolation as a string ('linear', 'nearest',
+        'zero', 'slinear', 'quadratic', 'cubic' where 'slinear', 'quadratic'
+        and 'cubic' refer to a spline interpolation of first, second or third
+        order) or as an integer specifying the order of the spline
+        interpolator to use. Default is 'linear'.
+
+        Returns
+        -------
+        A single element or a :class:`numpy.array` if the x parameter was
+        a :class:`numpy.array` or a list
+        """
+        points = [np.asarray(points[i], np.float64)
+                  for  i, _ in enumerate(points)]
+        deltas = [np.asarray(dx[i], np.float64)
+                  for  i, _ in enumerate(points)]
+        #---------------------------------------------------------
+        return _derivate(self, points, deltas, interp, extrap)
+
+
+
+
+
+
 
 class BreakPoints(np.ndarray):
     """
@@ -719,7 +1313,7 @@ class BreakPoints(np.ndarray):
 mesh1d = BreakPoints
 
 
-class mesh2d(mesh, ndim=2):
+class mesh2d(_mesh, ndim=2):
     """
     Fundamental 2D object, strict monotonic
 
@@ -1000,45 +1594,6 @@ class mesh2d(mesh, ndim=2):
 
         self.sort()
 
-    def interpolate(self, x, assume_sorted=False, *args, **kwargs):
-        """Purpose of this method is to return a linear interpolation
-        of a d vector for an unknown value x. If the targeted value
-        is out of the x range, the returned d-value is the first,
-        resp. the last d-value.
-
-        No interpolation is made out of the x definition range. For such
-        a functionality, use:py:meth:`extrapolate` instead.
-
-        Parameters
-        ----------
-        x:: iterable or single element,
-
-        kind: str or int, optional
-        Specifies the kind of interpolation as a string ('linear', 'nearest',
-        'zero', 'slinear', 'quadratic', 'cubic' where 'slinear', 'quadratic'
-        and 'cubic' refer to a spline interpolation of first, second or third
-        order) or as an integer specifying the order of the spline
-        interpolator to use. Default is 'linear'.
-
-        Returns
-        -------
-        A single element or a :class:`numpy.array` if the x parameter was
-        a :class:`numpy.array` or a list
-        """
-        # Code from scipy.interpolate.interp1d
-        if not assume_sorted:
-            self.sort()
-
-        try:
-            if isinstance(x, (np.ndarray, list, range)):
-                return interp2d(x, self.x, self.d)
-
-            else:
-                return interp2d(np.array([x]), self.x, self.d)[0]
-        except TypeError:
-            raise TypeError("{x.__class__.__name__} interpolation not \
-            implemented in {self.__class__.__name__}")
-
     @property
     def steps(self):
         from functools import partial
@@ -1235,7 +1790,7 @@ class mesh2d(mesh, ndim=2):
         return np.diff(self.d) / np.diff(self.x)
 
 
-class mesh3d(mesh, ndim=3):
+class mesh3d(_mesh, ndim=3):
     """
     Interpolate over a 2-D grid.
 
@@ -1682,7 +2237,7 @@ class mesh3d(mesh, ndim=3):
         return res[_sortx, _sorty]
 
 
-class mesh4d(mesh, ndim=4):
+class mesh4d(_mesh, ndim=4):
     """
     """
 
@@ -1914,7 +2469,7 @@ class mesh4d(mesh, ndim=4):
                     {'self': self, 'x': x, 'y': y, 'z': z})
 
 
-class mesh5d(mesh, ndim=5):
+class mesh5d(_mesh, ndim=5):
     """
     """
 

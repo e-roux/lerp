@@ -13,7 +13,9 @@ lerp : Lookup Table
 
 ``lerp`` aims to supply lookup table facility in python on top of numpy.
 
-This project is in early alpha phase.
+This project is in early development phase.
+
+2018-01 : project currently rewriten with xarray and interpolation C-code from Scientific Data format.
 
 
 Documentation (and example of use):
@@ -45,6 +47,8 @@ License
 -------
 
 MIT -- see the file ``LICENSE`` for details.
+
+Scientific Data format code under BSD-3 License.
 
 .. N-D Lookup tables for Modelica
 .. http://www.ep.liu.se/ecp/096/092/ecp14096092.pdf

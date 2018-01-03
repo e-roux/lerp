@@ -6,6 +6,7 @@ dependencies:
   - pandoc
   - nbconvert
   - ipykernel
+  - xarray
   - pip:
     - guzzle_sphinx_theme
     - nbsphinx
