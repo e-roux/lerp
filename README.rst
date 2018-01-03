@@ -13,7 +13,7 @@ lerp : Lookup Table
 
 ``lerp`` aims to supply lookup table facility in python on top of numpy.
 
-This project is in early alpha phase.
+This project is in early development phase.
 
 
 Documentation (and example of use):

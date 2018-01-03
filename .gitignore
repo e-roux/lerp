@@ -15,6 +15,9 @@ MOVE
 data
 docs/_build/
 docs/lerp.log
+lerp/C
 sample/
 src/util.py
 tests/
+lerp/core/libND*
+lerp/mesh22.py
