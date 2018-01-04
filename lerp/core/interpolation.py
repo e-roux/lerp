@@ -11,7 +11,6 @@ from numpy.ctypeslib import (ndpointer, load_library)
 from enum import IntEnum
 import numpy as np
 
-
 __all__ = ["INTERP_METH", "EXTRAP_METH", "libNDTable",
            "_interpol", "_derivate"]
 
@@ -86,24 +85,26 @@ evaluate_struct.argtypes = [POINTER(NDTable_t), c_void_p, c_int,
                             c_int, c_int, c_int, c_void_p]
 evaluate_struct.restype = c_int
 
-def _interpol(data, *coordinates, interp='linear', extrap='hold'):
+def _interpol(data, coordinates, interp='linear', extrap='hold'):
     # Values to interpolate
     # if all([p[i] for p in points]):
 
     #---------------------------------------------------------
 
-    points = []
-    if data.ndim == 1:
-        points = [np.asarray([*coordinates]).ravel()]
-#                  for  i, _ in enumerate(coordinates)]
-    elif data.ndim > 1:
-        for i, _ in enumerate(coordinates):
-            points.append(np.asarray(coordinates[i], np.float64))
+#     points = []
+#     if data.ndim == 1:
+#         points = [np.asarray([*coordinates]).ravel()]
+# #                  for  i, _ in enumerate(coordinates)]
+#     elif data.ndim > 1:
+#         for i, _ in enumerate(coordinates):
+#             points.append(np.asarray(coordinates[i], np.float64))
+#
+#         #points = [np.asarray([*i]).ravel()
+#         #          for  i in zip(*coordinates)]
+#     else:
+#         print("Wrong!")
 
-        #points = [np.asarray([*i]).ravel()
-        #          for  i in zip(*coordinates)]
-    else:
-        print("Wrong!")
+    points = coordinates
 
 
     values = np.empty(points[0].shape)

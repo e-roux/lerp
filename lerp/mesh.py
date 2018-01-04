@@ -91,9 +91,8 @@ class Mesh(DataArray):
         plt.graphpaper(200, 1)
 
     """
+    AXES = 'xyzvw'
     def __init__(self, *pargs, **kwargs):
-
-        AXES = 'xyzvw'
 
         self._options = {
             "extrapolate": True,
@@ -115,17 +114,16 @@ class Mesh(DataArray):
                 kwargs['coords']= {}
 
             if 'data' not in kwargs:
-                kwargs['data'] = pargs[-1]
-                pargs = pargs[:-1]
+                kwargs['data'] = pargs.pop()
 
-            for _k, _v in zip(AXES, pargs):
+            for _k, _v in zip(self.AXES, pargs):
                 kwargs['coords'][_k] = _v
                 pargs = []
 
-            dims = set(AXES) & set(kwargs)
+            dims = set(self.AXES) & set(kwargs)
 
             if dims:
-                for d in sorted(dims, key=lambda x : AXES.index(x)):
+                for d in sorted(dims, key=lambda x : self.AXES.index(x)):
                     kwargs['coords'][d] = kwargs.pop(d)
 
             kwargs['dims'] = tuple(kwargs['coords'].keys())
@@ -165,8 +163,53 @@ class Mesh(DataArray):
             else:
                 return self.interpolation(*pargs, **kwargs)
 
-    def interpolation(self, *points, interp='linear', extrap='hold'):
-        return _interpol(self, *points, interp=interp, extrap=extrap)
+    def interpolation(self, *points, interp='linear', extrap='hold', **kwargs):
+
+        #   Si les axes manquant pas dans AXES:
+        #       erreur
+        #   Sinon:
+        #       mappage axes -> valeurs
+        # Sinon:
+        #       mappage axes -> valeurs
+
+        #if len(points) < self.ndim:
+
+
+        AXES = self.AXES[:self.ndim]
+        assert len(set(AXES) & set(kwargs)) + len(points) == self.ndim, \
+            "Not enough dimensions for interpolation"
+
+        points = list(points)
+        args = {_x : kwargs[_x] if _x in kwargs else points.pop(0)
+                for _x in AXES}
+
+        _dim = np.array([len(args[_k]) if "__len__" in dir(args[_k])
+                         else 1 for _k in args])
+
+        assert all((_dim == max(_dim)) + (_dim == 1)), "problème"
+
+        args = [np.asarray(args[_x], np.float64)
+                if "__len__" in dir(args[_x])
+                else np.ones((max(_dim),), np.float64) * args[_x]
+                for _x in AXES]
+
+
+        # from itertools import zip_longest
+        # desc = np.dtype({'names' : AXES,
+        #                  'formats' : [np.float64] * self.ndim})
+        #
+        # A = np.array(list(zip_longest(*points)),
+        #              dtype=desc)
+        # return A
+        #
+        # for _k, _v in zip(AXES, points):
+        #     assert _k not in kwargs.keys(), f"Key {_k} already in kwargs"
+        #     kwargs[_k] = _v
+        # print(kwargs.fromkeys(AXES))
+        # #if kwargs.keys() & AXES:
+
+        return _interpol(self, args,
+                         interp=interp, extrap=extrap)
 
     # Plot MAP as PDF in filename
     def plot(self, xy=False, filename=None, **kwargs):

@@ -30,6 +30,10 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#ifdef _WIN32
+#define _CRT_SECURE_NO_WARNINGS 1
+#endif
+
 #include <stdarg.h>
 #include <stdlib.h>
 #include <math.h>
@@ -41,6 +45,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #ifdef _WIN32
 #define ISFINITE(x) _finite(x)
+/*
+https://docs.python.org/3/faq/windows.html#is-a-pyd-file-the-same-as-a-dll
+*/
+void PyInit_libNDTable() {}
 #else
 #define ISFINITE(x) isfinite(x)
 #endif
