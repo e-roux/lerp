@@ -6,7 +6,7 @@ from os import mkdir, system
 import os.path
 import numpy as np
 import pandas as pd
-from lerp.mesh import mesh2d, mesh3d
+from lerp.mesh import Mesh # mesh2d, mesh3d
 from lerp.util.FigureData import go as digitizer
 
 from openpyxl import load_workbook
@@ -142,10 +142,12 @@ class xlsx(object):
                 if min(res.shape) == 1:
                     if res.shape[0] < res.shape[1]:
                         res = res.T
-                    mymesh = mesh2d(res.index, res.iloc[:, 0])
+                    mymesh = Mesh(res.index, res.iloc[:, 0])
                 else:
-                    mymesh = mesh3d()
-                    mymesh.from_pandas(res)
+                    # TODO : fix
+                    mymesh = None
+                    # mymesh = mesh3d()
+                    #mymesh.from_pandas(res)
                 return mymesh
             else:
                 return res
@@ -155,9 +157,9 @@ class xlsx(object):
 
     def to_mesh3d(self):
         """Export to mesh3d."""
-        res = mesh3d()
-        return res.from_pandas(self)
-
+        #res = mesh3d()
+        #return res.from_pandas(self)
+        return None
 
 def quoted_form_of(s: str) -> str:
     """Return a quoted form of a string."""
