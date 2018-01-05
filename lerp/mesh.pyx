@@ -344,19 +344,30 @@ class Mesh(DataArray):
 
         import matplotlib.pyplot as plt
 
+        assert len(self.dims) <= 2, "More that two dimensions"
+
         if self.label is None:
             self.label = ""
         if self.unit is None:
             self.unit = ""
 
-        plt.xlabel(f"{self.y.label} [{self.y.unit}]"
-                   if self.y.label is not None else "Label []")
+        x_axis = getattr(self, self.dims[0])
+        y_axis = getattr(self, self.dims[1]) if len(self.dims) > 1 else None
+
+        plt.xlabel(f"{x_axis.label} [{x_axis.unit}]"
+                   if x_axis.label is not None else "Label []")
         plt.ylabel(self.label + ' [' + self.unit + ']')
 
-        for _i, _x in enumerate(self.x.data):
-            # print("plot {}".format(_x))
-            plt.plot(self.y, self.data[_i], '-', linewidth=1,
-                          label=u"{} {}".format(_x, self.x.unit), **kwargs)
+        if y_axis is not None:
+            for _i, _y in enumerate(y_axis.data):
+                # print("plot {}".format(_x))
+                plt.plot(x_axis.data,
+                         self.data.take(_i, axis=self.AXES.index(self.dims[1])),
+                         '-', linewidth=1, label=f"{_y} {y_axis.unit}",
+                         **kwargs)
+        else:
+            plt.plot(x_axis.data, self.data, '-', linewidth=1,
+                     label=f"{x_axis.unit}", **kwargs)
 
         plt.legend(loc=2, borderaxespad=0., frameon=0)
 
