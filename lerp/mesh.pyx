@@ -70,7 +70,7 @@ class NDTable_t(Structure):
 
             breakpoints = (np.asanyarray(getattr(_mesh, elt),
                                          dtype=np.float64, order='C')
-                           for elt in _mesh.coords)
+                           for elt in _mesh.dims)
 
             for i, scale in enumerate(breakpoints):
                 breakpoints_[i] = scale.ctypes.data
@@ -293,17 +293,9 @@ class Mesh(DataArray):
 
     def interpolation(self, *points, interp='linear', extrap='hold', **kwargs):
 
-        #   Si les axes manquant pas dans AXES:
-        #       erreur
-        #   Sinon:
-        #       mappage axes -> valeurs
-        # Sinon:
-        #       mappage axes -> valeurs
-
-        #if len(points) < self.ndim:
-
-
         AXES = self.AXES[:self.ndim]
+        AXES = set(self.dims) & set(self.AXES)
+
         assert len(set(AXES) & set(kwargs)) + len(points) == self.ndim, \
             "Not enough dimensions for interpolation"
 
@@ -321,38 +313,39 @@ class Mesh(DataArray):
                 else np.ones((max(_dim),), np.float64) * args[_x]
                 for _x in AXES]
 
+        values = np.empty(args[0].shape)
 
-        # from itertools import zip_longest
-        # desc = np.dtype({'names' : AXES,
-        #                  'formats' : [np.float64] * self.ndim})
-        #
-        # A = np.array(list(zip_longest(*points)),
-        #              dtype=desc)
-        # return A
-        #
-        # for _k, _v in zip(AXES, points):
-        #     assert _k not in kwargs.keys(), f"Key {_k} already in kwargs"
-        #     kwargs[_k] = _v
-        # print(kwargs.fromkeys(AXES))
-        # #if kwargs.keys() & AXES:
+        # params
+        params = (c_void_p * len(args))()
+        for i, param in enumerate(args):
+            params[i] = param.ctypes.get_as_parameter()
 
-        return _interpol(self, args,
-                         interp=interp, extrap=extrap)
+        res = evaluate_struct(byref(NDTable_t(data=self)),
+                              params,
+                              c_int(len(params)),
+                              c_int(INTERP_METH[interp]),
+                              c_int(EXTRAP_METH[extrap]),
+                              c_int(values.size),
+                              values.ctypes.get_as_parameter()
+                              )
+        assert res == 0, 'An error occurred during interpolation'
+
+        return values[0] if len(values) == 1 else values
 
     # Plot MAP as PDF in filename
     def plot(self, xy=False, filename=None, **kwargs):
 
         import matplotlib.pyplot as plt
 
-        assert len(self.dims) <= 2, "More that two dimensions"
+        assert self.ndim <= 2, "More that two dimensions"
 
         if self.label is None:
             self.label = ""
         if self.unit is None:
             self.unit = ""
 
-        x_axis = getattr(self, self.dims[0])
-        y_axis = getattr(self, self.dims[1]) if len(self.dims) > 1 else None
+        x_axis = self.coords[self.dims[0]]
+        y_axis = self.coords[self.dims[1]] if self.ndim > 1 else None
 
         plt.xlabel(f"{x_axis.label} [{x_axis.unit}]"
                    if x_axis.label is not None else "Label []")
@@ -362,9 +355,11 @@ class Mesh(DataArray):
             for _i, _y in enumerate(y_axis.data):
                 # print("plot {}".format(_x))
                 plt.plot(x_axis.data,
-                         self.data.take(_i, axis=self.AXES.index(self.dims[1])),
+                         self.data.take(_i, axis=1),
                          '-', linewidth=1, label=f"{_y} {y_axis.unit}",
                          **kwargs)
+#                         self.data.take(_i, axis=self.AXES.index(self.dims[1])),
+
         else:
             plt.plot(x_axis.data, self.data, '-', linewidth=1,
                      label=f"{x_axis.unit}", **kwargs)
@@ -374,3 +369,19 @@ class Mesh(DataArray):
         if filename is not None:
             print("Save file as " + filename)
             plt.savefig(filename, bbox_inches='tight')
+
+
+# cdef struct ndtable:
+#     int shape[MAX_NDIMS]
+#     int ndim
+
+
+#	int 	shape[MAX_NDIMS]    # Array of data array dimensions.
+#	int 	strides[MAX_NDIMS]  # bytes to step in each dimension when
+								# traversing an array.
+#	int		ndim			    # Number of array dimensions.
+#	double *data			    # Buffer object pointing to the start
+								# of the array’s data.
+#	int		size			    # Number of elements in the array.
+#	int     itemsize		    # Length of one array element in bytes.
+#	double *breakpoints[MAX_NDIMS]  # array of pointers to the scale values
