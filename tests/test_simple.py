@@ -23,6 +23,7 @@ def test():
 
     res = m3d([1.2, 5.6, 6], 645)
 
+    assert res[0] == 0.1406002726703582, f"res[0] = {res[0]} instead of 0.14060027"  #  2.09406656  2.18678609
     print(f"{res} for x=[1.2, 5.6, 6] and y=645")
     return res
 
@@ -55,7 +56,6 @@ print("*"*80)
 print("test")
 print("*"*80)
 test()
-
 print("*"*80)
 print("Tiny bench")
 print("*"*80)

@@ -298,10 +298,7 @@ class Mesh(DataArray):
         """Interpolation
         """
 
-        AXES = self.AXES[:self.ndim]
-        AXES = set(self.dims) & set(self.AXES)
-
-        assert len(set(AXES) & set(kwargs)) + len(points) == self.ndim, \
+        assert len(set(self.dims) & set(kwargs)) + len(points) == self.ndim, \
             "Not enough dimensions for interpolation"
 
         # First:
@@ -309,8 +306,9 @@ class Mesh(DataArray):
         #   - clean-up arguments in case: mix usage points/kwargs
         #   - create a clean argument dict
         points = list(points)
+
         args = {_x : kwargs[_x] if _x in kwargs else points.pop(0)
-                for _x in AXES}
+                for _x in self.dims}
 
         # Compute args dimensions and check compatibility without
         # broadcasting rules.
@@ -318,16 +316,11 @@ class Mesh(DataArray):
                          else 1 for _k in args])
         assert all((dims == max(dims)) + (dims == 1)), "problème"
 
-        #
-        # print([_x for _x in AXES])
 
-        # B = np.zeros((100,1), dtype=desc)
-        #args =
         _s = max(dims)
 
         #print([np.broadcast_to(args[_x], #(_s,)).astype(np.float64).ctypes.get_as_parameter()
         #       for _x in self.dims])
-
 
         args = [np.asarray(args[_x], np.float64)
                 if "__len__" in dir(args[_x])
@@ -343,10 +336,11 @@ class Mesh(DataArray):
 
         values = np.empty(args[0].shape)
 
-        paramsType = c_void_p * len(AXES)
+        c_params_p = c_void_p * len(self.dims)
 
         res = evaluate_struct(NDTable_t(data=self),
-                              paramsType(*[_a.ctypes.get_as_parameter() for _a in args]),
+                              c_params_p(*[_a.ctypes.get_as_parameter()
+                                           for _a in args]),
                               c_int(self.ndim),
                               INTERP_METH[interp],
                               EXTRAP_METH[extrap],

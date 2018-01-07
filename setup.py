@@ -2,7 +2,7 @@
 
 import os
 import numpy as np
-from Cython.Distutils import build_ext
+# from Cython.Distutils import build_ext
 from setuptools import setup, find_packages, Extension
 # from setuptools.config import read_configuration
 # conf_dict = read_configuration('./setup.cfg')
