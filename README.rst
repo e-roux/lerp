@@ -1,6 +1,10 @@
 lerp : Lookup Table
 =======================
 
+.. image:: https://api.codacy.com/project/badge/Grade/66954913da4d48c6ade3bf3f436092b0
+   :alt: Codacy Badge
+   :target: https://www.codacy.com/app/gwin-zegal/lerp?utm_source=github.com&utm_medium=referral&utm_content=gwin-zegal/lerp&utm_campaign=badger
+
 .. |docs| image:: https://readthedocs.org/projects/lerp/badge
     :alt: Documentation Status
     :target: https://lerp.readthedocs.io/en/latest/?badge=latest
