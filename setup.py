@@ -17,9 +17,9 @@ ext_modules = [ Extension('lerp.core.libNDTable',
                                      'lerp/C/src/Interpolation.c'],
                           include_dirs = [np.get_include(), 'lerp/C/include']
                           ),
-                Extension("lerp.mesh",
-                        ["lerp/mesh.pyx"],
-                        language='c',)
+                # Extension("lerp.mesh",
+                #         ["lerp/mesh.pyx"],
+                #         language='c',)
                 ]
 
 setup(
@@ -34,7 +34,7 @@ setup(
         ],
     description="Lookup table facility in python on top of numpy", download_url="https://github.com/gwin-zegal/lerp/releases/\
         tag/untagged-01068bebf35469123485",
-    cmdclass = {'build_ext': build_ext},
+#    cmdclass = {'build_ext': build_ext},
     ext_modules = ext_modules,
     install_requires=['numpy', 'scipy', 'matplotlib', 'pandas'],
     keywords="interpolation, lookup table",

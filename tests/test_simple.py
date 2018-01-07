@@ -23,9 +23,10 @@ def test():
 
     res = m3d([1.2, 5.6, 6], 645)
 
-    print(res)
+    print(f"{res} for x=[1.2, 5.6, 6] and y=645")
     return res
 
+# @profile
 def tiny_bench():
 
     x = np.linspace(0, 2 * np.pi, 10)
