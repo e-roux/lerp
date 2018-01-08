@@ -21,7 +21,7 @@ def test():
 
     print(f"m3d : {m3d}")
 
-    res = m3d([1.2, 5.6, 6], 645)
+    res = m3d.interpolation([1.2, 5.6, 6], 645)
 
     assert res[0] == 0.1406002726703582, f"res[0] = {res[0]} instead of 0.14060027"  #  2.09406656  2.18678609
     print(f"{res} for x=[1.2, 5.6, 6] and y=645")
@@ -42,7 +42,7 @@ def tiny_bench():
         _xi = np.random.randint(1, 10000, N).astype(np.float64) + np.random.random(N)
         _xi.sort()
         t1 = time()
-        m2d(_xi)
+        m2d.interpolation(_xi)
         t2 = time()
         results.append(t2-t1)
 
@@ -51,6 +51,14 @@ def tiny_bench():
 #    all_runs = pd.DataFrame(data={c: [_r / r.loops for _r in r.all_runs] for c, r in zip(_range, results)})
     return all_runs
 
+
+
+x = np.linspace(0, 2 * np.pi, 10)
+y = np.sin(x)
+xi = np.linspace(-1.5,  2 * np.pi + 1.5, 1000)
+m2d = Mesh(x,y)
+
+print(m2d.derivate(xi))
 
 print("*"*80)
 print("test")

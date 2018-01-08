@@ -53,15 +53,10 @@ Changes since fork from ScientificDataFormat NDTable
 
 #include "NDTable.h"
 
-
-PYTHON_API NDTable_h create_table(int ndims, const int *dims, const double *data, const double **scales);
-
-PYTHON_API void close_table(NDTable_h table);
-
-PYTHON_API int evaluate(
+PYTHON_API int evaluate_interpolation(
 	NDTable_h table,
-	int ndims,
 	const double **params,
+	int ndims,
 	NDTable_InterpMethod_t interp_method,
 	NDTable_ExtrapMethod_t extrap_method,
 	int nvalues,
@@ -69,9 +64,10 @@ PYTHON_API int evaluate(
 
 PYTHON_API int evaluate_derivative(
 	NDTable_h table,
-	int nparams,
-	const double params[],
-	const double delta_params[],
+	const double **params,
+	const double **dx,
+	int ndims,
 	NDTable_InterpMethod_t interp_method,
 	NDTable_ExtrapMethod_t extrap_method,
-	double *value);
+	int nvalues,
+	double *values);
