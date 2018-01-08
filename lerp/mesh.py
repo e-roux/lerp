@@ -316,11 +316,7 @@ class Mesh(DataArray):
                          else 1 for _k in args])
         assert all((dims == max(dims)) + (dims == 1)), "problème"
 
-
         _s = max(dims)
-
-        #print([np.broadcast_to(args[_x], #(_s,)).astype(np.float64).ctypes.get_as_parameter()
-        #       for _x in self.dims])
 
         args = [np.asarray(args[_x], np.float64)
                 if "__len__" in dir(args[_x])
@@ -328,11 +324,6 @@ class Mesh(DataArray):
                 for _x in self.dims]
 
         # print([np.broadcast_to(np.ravel([args[_x]]), (_s,))
-        #        for _x in self.dims])
-        # [np.asarray(args[_x], np.float64)
-        #         if "__len__" in dir(args[_x])
-        #         else np.ones((max(dims),), np.float64) * args[_x]
-        #         for _x in self.dims]
 
         values = np.empty(args[0].shape)
 
@@ -353,65 +344,27 @@ class Mesh(DataArray):
 
 
     def resample(self, *points, interp='linear', extrap='hold', **kwargs):
-        from itertools import zip_longest
-        AXES = self.AXES[:self.ndim]
-        AXES = set(self.dims) & set(self.AXES)
-        AXES = sorted(AXES)
 
-        assert len(points) <= self.ndim, \
-            "Too much points provided for resampling"
+        # First:
+        #   - convert points (tuple) to list,
+        #   - clean-up arguments in case: mix usage points/kwargs
+        #   - create a clean argument dict
 
-        assert points==() or kwargs=={}, "problème"
-
-        if kwargs=={}:
-            args = {}
-            for _i, _a in enumerate(AXES):
+        points = list(points)
+        args = {}
+        for d in self.dims:
+            if d in kwargs:
+                args[d] = kwargs[d]
+            else:
                 try:
-                    args[_a] =  points[_i] if "__len__" in dir(points[_i]) else [points[_i]]
+                    args[d] = points.pop(0)
                 except IndexError:
-                    args[_a] =  self.coords[_a].data
-        else:
-            args = {_x : kwargs[_x] if _x in kwargs else self.coords[_x].data
-                for _x in AXES}
+                    args[d] = self.coords[d]
 
-        n_points = np.prod([len(args[k]) for k in args])
-
-        print(n_points)
-
-#        for _a in
-        # [ np.repeat(args[k], np.prod([len(args[k]) for k in AXES[]]))]
-        return args
-
-
-
-        _dim = np.array([len(args[_k]) if "__len__" in dir(args[_k])
-                         else 1 for _k in args])
-
-        assert all((_dim == max(_dim)) + (_dim == 1)), "problème"
-
-        args = [np.asarray(args[_x], np.float64)
-                if "__len__" in dir(args[_x])
-                else np.ones((max(_dim),), np.float64) * args[_x]
-                for _x in AXES]
-
-        values = np.empty(args[0].shape)
-
-        # params
-        params = (c_void_p * len(args))()
-        for i, param in enumerate(args):
-            params[i] = param.ctypes.get_as_parameter()
-
-        res = evaluate_struct(byref(NDTable_t(data=self)),
-                              params,
-                              c_int(len(params)),
-                              c_int(INTERP_METH[interp]),
-                              c_int(EXTRAP_METH[extrap]),
-                              c_int(values.size),
-                              values.ctypes.get_as_parameter()
-                              )
-        assert res == 0, 'An error occurred during interpolation'
-
-        return values[0] if len(values) == 1 else values
+        mg = np.meshgrid(*args.values(), indexing='ij')
+        #return args
+        nv = self.interpolation(*mg, interp=interp, extrap=extrap)
+        return Mesh(nv, **args)
 
     # Plot MAP as PDF in filename
     def plot(self, xy=False, filename=None, **kwargs):
