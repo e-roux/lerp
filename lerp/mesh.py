@@ -48,7 +48,6 @@ EXTRAP_METH = LookUpEnum('EXTRAP_METH',
                          'hold linear')
 
 
-
 libNDTable = load_library('libNDTable', path2so)
 
 MAX_NDIMS = 32
@@ -134,39 +133,6 @@ evaluate_derivative = libNDTable.evaluate_derivative
 evaluate_derivative.argtypes = [NDTable_t, c_void_p, c_void_p, c_int,
                             c_int, c_int, c_int, c_void_p]
 evaluate_derivative.restype = c_int
-
-
-NDT_eval = libNDTable.NDT_eval
-NDT_eval.argtypes = [NDTable_t, c_int, c_void_p,
-                     c_int, c_int, c_void_p]
-NDT_eval.restype = c_int
-
-
-# def _derivate(data, points, deltas, interp, extrap):
-#     values = np.empty(points[0].shape)
-#     # params
-#     params = (c_void_p * len(points))()
-#     delta_params = (c_void_p * len(points))()
-#
-#     for i, param in enumerate(points):
-#         params[i] = param.ctypes.get_as_parameter()
-#     for i, delta in enumerate(deltas):
-#         delta_params[i] = delta.ctypes.get_as_parameter()
-#
-#
-#     res = _myEvaluateD(byref(NDTable_t(data=data)),
-#                           params,
-#                           c_int(len(params)),
-#                           c_int(INTERP_METH[interp]),
-#                           c_int(EXTRAP_METH[extrap]),
-#                           c_int(values.size),
-#                           values.ctypes.get_as_parameter(),
-#                           delta_params
-#                           )
-#     assert res == 0, 'An error occurred during interpolation'
-#
-#     return values
-
 
 
 class Mesh(DataArray):
@@ -361,62 +327,6 @@ class Mesh(DataArray):
         assert res == 0, 'An error occurred during interpolation'
 
         return values[0] if len(values) == 1 else values
-
-
-
-    def interpolation_NDT_eval(self, *points,
-                               interp='linear', extrap='hold', **kwargs):
-        """Interpolation
-        """
-
-        assert len(set(self.dims) & set(kwargs)) + len(points) == self.ndim, \
-            "Not enough dimensions for interpolation"
-
-        # First:
-        #   - convert points (tuple) to list,
-        #   - clean-up arguments in case: mix usage points/kwargs
-        #   - create a clean argument dict
-        points = list(points)
-
-        args = {_x : kwargs[_x] if _x in kwargs else points.pop(0)
-                for _x in self.dims}
-
-        # Compute args dimensions and check compatibility without
-        # broadcasting rules.
-        dims = np.array([len(args[_k]) if "__len__" in dir(args[_k])
-                         else 1 for _k in args])
-        assert all((dims == max(dims)) + (dims == 1)), "problème"
-
-        _s = max(dims)
-
-        args = [np.asarray(args[_x], np.float64)
-                if "__len__" in dir(args[_x])
-                else np.ones((max(dims),), np.float64) * args[_x]
-                for _x in self.dims]
-
-        # print([np.broadcast_to(np.ravel([args[_x]]), (_s,))
-
-        values = np.empty(args[0].shape)
-        value = c_double()
-
-        params = np.empty(len(args))
-
-        for index in np.ndindex(values.shape):
-            for i, point in enumerate(args):
-                params[i] = point[index]
-
-            NDT_eval(NDTable_t(data=self),
-                     c_int(self.ndim),
-                     params.ctypes.get_as_parameter(),
-                     INTERP_METH[interp],
-                     EXTRAP_METH[extrap],
-                      byref(value))
-            values[index] = value.value
-
-        #assert res == 0, 'An error occurred during interpolation'
-
-        return values[0] if len(values) == 1 else values
-
 
     def resample(self, *points, interp='linear', extrap='hold', **kwargs):
 
