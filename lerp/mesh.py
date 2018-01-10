@@ -24,6 +24,14 @@ import sys
 from os.path import (dirname, join as pjoin)
 from copy import (copy, deepcopy)
 
+_html_style = {
+    'table': 'border: 0px none;',
+    'th': 'color:LightGrey;border:0px none;'
+          'text-align:center;background:none;',
+    'tr': 'border:0px none; border-bottom:1px solid #C0C0C0;background:none;',
+    'none': 'border:0px none;background:none;',
+}
+
 
 # Base class for creating enumerated constants that are
 # also subclasses of int
@@ -77,7 +85,7 @@ class NDTable_t(Structure):
             kwargs['itemsize'] = data.itemsize
             kwargs['ndim'] = data.ndim
             kwargs['size'] = data.size
-            kwargs['breakpoints'] = POINTER_TO_BP(*[np.asanyarray(getattr(_mesh, elt),
+            kwargs['breakpoints'] = POINTER_TO_BP(*[np.asanyarray(_mesh.coords[elt],
                                  dtype=np.float64, order='C').ctypes.data
                            for elt in _mesh.dims])
 
@@ -135,6 +143,121 @@ evaluate_derivative.argtypes = [NDTable_t, c_void_p, c_void_p, c_int,
 evaluate_derivative.restype = c_int
 
 
+class BreakPoints(np.ndarray):
+    """
+    Basic subclass of `numpy.ndarray` with `unit` and `label` attributes.
+    Parameters
+    ----------
+    d : array
+           Data in form of a python array or numpy.array
+    label : string, optional
+            label for plotting utility
+    unit : string, optional
+           unit for plotting utility
+    Examples
+    --------
+    .. code-block:: python
+        In [1]: from lerp import mesh1d
+        In [2]: x = mesh1d(d=[100, 600, -200, 300], label="Current", unit="A")
+        In [3]: print("Max : {0} {1.unit}".format(x.max(), x))
+        Max : 600 A
+        In [4]: print("Before sorting\\n", x)
+        Before sorting
+         [ 100  600 -200  300]
+        In [5]: x.sort()
+        In [6]: print("After sorting\\n", x)
+        After sorting
+         [-200  100  300  600]
+        # Element added to x, inplace and sorting
+         In [7]: x.push( [250, 400 ], sort=True)
+        Out[7]: mesh1d(d=[-200,100,250,300,400,600], label=Current, unit=A)
+        # Addition, in place
+        In [8]: x += 900
+        In [9]: x
+        Out[9]: mesh1d(d=[700,1000,1200,1500], label=Current, unit=A)
+        # Slicing
+        In [10]: x[2]
+        Out[10]: 1200
+        In [11]: x[1:3]
+        Out[11]: mesh1d(d=[1000,1200], label="Current", unit="A")
+    """
+
+    def __new__(cls, d=[], label=None, unit=None):
+        from functools import singledispatch
+
+        # We first cast to be our class type
+        # np.asfarray([], dtype='float64')
+        @singledispatch
+        def myArray(o):
+            # if o is None:
+            #    o = []
+            # Will call directly __array_finalize__
+            obj = np.asarray(o).ravel().view(cls)
+            obj.label = label
+            obj.unit = unit
+            return obj
+
+        @myArray.register(BreakPoints)
+        def _(o):
+            # Override label and unit if given as parameter
+            if label:
+                o.label = label
+            if unit:
+                o.unit = unit
+            return o
+
+        return myArray(d)
+
+    def __array_finalize__(self, obj):
+        # https://docs.scipy.org/doc/numpy/reference/arrays.classes.html
+        self.unit = getattr(obj, 'unit', None)
+        self.label = getattr(obj, 'label', None)
+
+    def __repr__(self):
+        return '{0}, label="{1.label}", unit="{1.unit}")'. \
+            format(np.array_repr(self, precision=2).replace(")", "").
+                   replace("(", "(d="), self)
+
+    def _repr_html_(self):
+        max_rows = get_option("display.max_rows")
+
+        root = ET.Element('div')
+        pre = ET.SubElement(root, 'p')
+        ET.SubElement(pre, 'code').text = self.__class__.__name__
+        ET.SubElement(pre, 'span').text = ": "
+        ET.SubElement(pre, 'b').text = self.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+        ET.SubElement(pre, 'br')
+
+        res = ET.SubElement(pre, 'p')
+        if self.size == 1:
+            res.text = str(self)
+        else:
+            table = ET.StyledSubElement(res, 'table')
+            tbody = ET.SubElement(table, 'tbody')
+            for _i in range(2):
+                if not _i:
+                    tr = ET.StyledSubElement(tbody, 'tr')
+                    for _node in islice(np.arange(len(self)), max_rows - 1):
+                        ET.StyledSubElement(tr, 'th').text = str(_node)
+                    if len(self) > max_rows:
+                        ET.StyledSubElement(tr, 'th').text = "..."
+                        ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
+                    elif len(self) > max_rows - 1:
+                        ET.StyledSubElement(tr, 'th').text = str(len(self) - 1)
+                else:
+                    tr = ET.SubElement(tbody, 'tr',
+                                       {'style': 'border: 0px solid'})
+                    for _node in islice(self, max_rows - 1):
+                        ET.SubElement(tr, 'td').text = str(_node)
+                    if len(self) > max_rows:
+                        ET.SubElement(tr, 'td').text = "..."
+                        ET.SubElement(tr, 'td').text = str(self[-1])
+                    elif len(self) > max_rows - 1:
+                        ET.SubElement(tr, 'td').text = str(self[-1])
+
+        return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
+
 class Mesh(DataArray):
     """
     # Code example
@@ -156,6 +279,11 @@ class Mesh(DataArray):
     AXES = 'xyzvw'
     def __init__(self, *pargs, **kwargs):
 
+        from xarray.core.variable import (Variable, as_compatible_data)
+        from xarray.core.dataarray import _infer_coords_and_dims
+
+        coords, variable, name = (None, None, None)
+
         self._options = {
             "extrapolate": True,
             "step": False,
@@ -166,32 +294,58 @@ class Mesh(DataArray):
             assert not bool(set(kwargs) & set(kwargs['coords'])), \
                 "Redundant arguments in coords and kwargs"
 
-        self.label = kwargs.pop('label') if 'label' in kwargs else None
-        self.unit = kwargs.pop('unit') if 'unit' in kwargs else None
+        for info in ["label", "unit"]:
+            setattr(self, info, kwargs[info] if info in kwargs else None)
+
+        # print(kwargs["attrs"] if "attrs" in kwargs else None) # = {"x" :"aze"}
 
         # Intern to DataArray
-        # See https://github.com/pydata/xarray/blob/master/xarray/core/dataarray.py
+        # See
+        # https://github.com/pydata/xarray/blob/master/xarray/core/dataarray.py
         if 'fastpath' not in kwargs:
             if 'coords' not in kwargs:
-                kwargs['coords']= {}
+                coords = {}
 
+            # Set the main data
             if 'data' not in kwargs:
-                kwargs['data'] = pargs[-1]
-                pargs = pargs[:-1]
+                *pargs, data = pargs
+            else:
+                data = kwargs.pop('data')
 
             for _k, _v in zip(self.AXES, pargs):
-                kwargs['coords'][_k] = _v
+                coords[_k] = _v
                 pargs = []
 
             dims = set(self.AXES) & set(kwargs)
 
             if dims:
                 for d in sorted(dims, key=lambda x : self.AXES.index(x)):
-                    kwargs['coords'][d] = kwargs.pop(d)
+                    coords[d] = kwargs.pop(d)
 
-            kwargs['dims'] = tuple(kwargs['coords'].keys())
+            dims = tuple(coords.keys())
+            encoding = getattr(data, 'encoding', None)
+            # attrs = getattr(data, 'attrs', None)
+            name = getattr(data, 'name', None)
+            attrs = {"x" :"aze"}
 
-        super(Mesh, self).__init__(*pargs, **kwargs)
+            data = as_compatible_data(data)
+            coords, dims = _infer_coords_and_dims(data.shape, coords, dims)
+            variable = Variable(dims, data, attrs, encoding, fastpath=True)
+
+        else:
+            variable = pargs[0]
+            #print("fastpath", *pargs, end="END\n")
+            self.label = "Le label des x!"
+            self.unit = "%"
+
+        # These fully describe a DataArray
+        self._variable = variable
+        self._coords = coords
+        self._name = name
+
+        self._file_obj = None
+
+        self._initialized = True
 
     @property
     def options(self):
@@ -248,14 +402,10 @@ class Mesh(DataArray):
                          else 1 for _k in args])
         assert all((dims == max(dims)) + (dims == 1)), "problème"
 
-        _s = max(dims)
-
         args = [np.asarray(args[_x], np.float64)
                 if "__len__" in dir(args[_x])
                 else np.ones((max(dims),), np.float64) * args[_x]
                 for _x in self.dims]
-
-        # print([np.broadcast_to(np.ravel([args[_x]]), (_s,))
 
         values = np.empty(args[0].shape)
 
@@ -270,12 +420,13 @@ class Mesh(DataArray):
                               c_int(values.size),
                               values.ctypes.get_as_parameter()
                               )
+
         assert res == 0, 'An error occurred during interpolation'
 
         return values[0] if len(values) == 1 else values
 
 
-    def derivate(self, *points, interp='linear', extrap='hold', **kwargs):
+    def derivate(self, *points, interp='linear', extrap='hold', n=1, **kwargs):
         """derivate
         """
 
@@ -297,17 +448,12 @@ class Mesh(DataArray):
                          else 1 for _k in args])
         assert all((dims == max(dims)) + (dims == 1)), "problème"
 
-        _s = max(dims)
-
         args = [np.asarray(args[_x], np.float64)
                 if "__len__" in dir(args[_x])
                 else np.ones((max(dims),), np.float64) * args[_x]
                 for _x in self.dims]
 
         dxi = [np.ones_like(_x) for _x in args]
-
-        # print(args)
-        # print([np.broadcast_to(np.ravel([args[_x]]), (_s,))
 
         values = np.empty(args[0].shape)
 
@@ -324,6 +470,7 @@ class Mesh(DataArray):
                               c_int(values.size),
                               values.ctypes.get_as_parameter()
                               )
+
         assert res == 0, 'An error occurred during interpolation'
 
         return values[0] if len(values) == 1 else values
@@ -388,7 +535,21 @@ class Mesh(DataArray):
             print("Save file as " + filename)
             plt.savefig(filename, bbox_inches='tight')
 
-
+    # def _repr_html_(self):
+    #     max_rows = get_option("display.max_rows")
+    #
+    #     root = ET.Element('div')
+    #     pre = ET.SubElement(root, 'p')
+    #     ET.SubElement(pre, 'code').text = f"{self.__class__.__name__ }: "
+    #     ET.SubElement(pre, 'b').text = self.label or "Label"
+    #     ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+    #     ET.SubElement(pre, 'br')
+    #
+    #     for _a in self.dims:
+    #         axis = self.coords[_a]
+    #         #root.append(ET.fromstring(axis._repr_html_()))
+    #
+    #     return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
 # cdef struct ndtable:
 #     int shape[MAX_NDIMS]
 #     int ndim
