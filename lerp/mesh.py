@@ -4,28 +4,18 @@ This module delivers utilities to manipulate data meshes
 
 """
 
-import numpy as np
-from lerp.intern import logger, myPlot
-from lerp.core import path2so
-from lerp.core.config import get_option
+import xml.etree.ElementTree as ET
+from itertools import islice
 
-from functools import (partial, wraps)
-import pickle
+import numpy as np
 from xarray import DataArray
 from xarray.core.pycompat import dask_array_type
 from xarray.core.formatting import (unindexed_dims_repr, dim_summary,
-                                    short_array_repr, attrs_repr)
+                                    short_dask_repr, short_array_repr, attrs_repr)
+from lerp.core.config import get_option
 
-import xml.etree.ElementTree as ET
+from .core.interpolation import (interpolation, derivate)
 
-from numpy.ctypeslib import (ndpointer, load_library)
-from ctypes import (c_void_p, c_int, c_double, cdll, byref, POINTER, Structure)
-import ctypes
-from enum import IntEnum
-
-import sys
-from os.path import (dirname, join as pjoin)
-from copy import (copy, deepcopy)
 
 _html_style = {
     'table': 'border: 0px none;',
@@ -35,116 +25,11 @@ _html_style = {
     'none': 'border:0px none;background:none;',
 }
 
+def _StyledSubElement(parent, child):
+    return ET.SubElement(parent, child,
+                         {'style': _html_style[child]})
 
-# Base class for creating enumerated constants that are
-# also subclasses of int
-#
-# http://www.chriskrycho.com/2015/ctypes-structures-and-dll-exports.html
-# Option 1: set the _as_parameter value at construction.
-# def __init__(self, value):
-#    self._as_parameter = int(value)
-#
-# Option 2: define the class method `from_param`.
-# @classmethod
-# def from_param(cls, obj):
-#    return int(obj)
-class LookUpEnum(IntEnum):
-    @classmethod
-    def from_param(cls, obj):
-        return int(obj)
-
-INTERP_METH = LookUpEnum('INTERP_METH',
-                         'hold nearest linear akima fritsch_butland steffen')
-EXTRAP_METH = LookUpEnum('EXTRAP_METH',
-                         'hold linear')
-
-
-libNDTable = load_library('libNDTable', path2so)
-
-MAX_NDIMS = 32
-ARRAY_MAX_NDIMS = c_int * MAX_NDIMS
-POINTER_TO_DOUBLE = ndpointer(dtype=np.float64, flags='C_CONTIGUOUS')
-POINTER_TO_BP = POINTER_TO_DOUBLE * MAX_NDIMS
-
-class NDTable_t(Structure):
-    """
-    Parameter : Mesh object
-    """
-    _fields_ = [("shape", c_int * MAX_NDIMS),
-                ("strides", c_int * MAX_NDIMS),
-                ("ndim", c_int),
-                ("data", POINTER_TO_DOUBLE),
-                ("size", c_int),
-                ("itemsize", c_int),
-                ("breakpoints", POINTER_TO_BP)]
-
-    def __init__(self, *args, **kwargs):
-        if 'data' in kwargs:
-            _mesh = kwargs['data']
-            data = _mesh.data.astype(np.float64)
-            kwargs['data'] = data.ctypes.data_as(POINTER_TO_DOUBLE)
-            kwargs['shape'] = ARRAY_MAX_NDIMS(*data.shape)
-            kwargs['strides'] = ARRAY_MAX_NDIMS(*data.strides)
-            kwargs['itemsize'] = data.itemsize
-            kwargs['ndim'] = data.ndim
-            kwargs['size'] = data.size
-            kwargs['breakpoints'] = POINTER_TO_BP(*[np.asanyarray(_mesh.coords[elt],
-                                 dtype=np.float64, order='C').ctypes.data
-                           for elt in _mesh.dims])
-
-        super(NDTable_t, self).__init__(*args, **kwargs)
-
-    @classmethod
-    def from_param(cls, obj):
-        return byref(obj)
-
-
-# Note: recipe #15.1
-# Python Cookbook, D. Beazley
-# O'Reilly
-# Define a special type for the 'double *' argument
-# The important element is from_param
-class DoubleArrayType:
-    def from_param(self, param):
-        typename = type(param).__name__
-        if hasattr(self, 'from_' + typename):
-            return getattr(self, 'from_' + typename)(param)
-        elif isinstance(param, ctypes.Array):
-            return param
-        else:
-            raise TypeError("Can't convert %s" % typename)
-
-    # Cast from array.array objects
-    def from_array(self, param):
-        if param.typecode != 'd':
-            raise TypeError('must be an array of doubles')
-        ptr, _ = param.buffer_info()
-        return ctypes.cast(ptr, ctypes.POINTER(ctypes.c_double))
-
-    # Cast from lists/tuples
-    def from_list(self, param):
-        val = ((ctypes.c_double)*len(param))(*param)
-        return val
-
-    from_tuple = from_list
-
-    # Cast from a numpy array
-    def from_ndarray(self, param):
-        return param.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-
-################################################################################
-# Import evaluate_interpolation
-################################################################################
-evaluate_interpolation = libNDTable.evaluate_interpolation
-evaluate_interpolation.argtypes = [NDTable_t, c_void_p, c_int,
-                            c_int, c_int, c_int, c_void_p]
-evaluate_interpolation.restype = c_int
-
-evaluate_derivative = libNDTable.evaluate_derivative
-evaluate_derivative.argtypes = [NDTable_t, c_void_p, c_void_p, c_int,
-                            c_int, c_int, c_int, c_void_p]
-evaluate_derivative.restype = c_int
-
+ET.StyledSubElement = _StyledSubElement
 
 class BreakPoints(np.ndarray):
     """
@@ -185,13 +70,15 @@ class BreakPoints(np.ndarray):
         Out[11]: mesh1d(d=[1000,1200], label="Current", unit="A")
     """
 
-    def __new__(cls, d=[], label=None, unit=None):
+    def __new__(cls, d=None, label=None, unit=None):
         from functools import singledispatch
 
+        if d is None:
+            d = []
         # We first cast to be our class type
         # np.asfarray([], dtype='float64')
         @singledispatch
-        def myArray(o):
+        def my_array(o):
             # if o is None:
             #    o = []
             # Will call directly __array_finalize__
@@ -200,7 +87,7 @@ class BreakPoints(np.ndarray):
             obj.unit = unit
             return obj
 
-        @myArray.register(BreakPoints)
+        @my_array.register(BreakPoints)
         def _(o):
             # Override label and unit if given as parameter
             if label:
@@ -209,7 +96,7 @@ class BreakPoints(np.ndarray):
                 o.unit = unit
             return o
 
-        return myArray(d)
+        return my_array(d)
 
     def __array_finalize__(self, obj):
         # https://docs.scipy.org/doc/numpy/reference/arrays.classes.html
@@ -322,7 +209,7 @@ class Mesh(DataArray):
             dims = set(self.AXES) & set(kwargs)
 
             if dims:
-                for d in sorted(dims, key=lambda x : self.AXES.index(x)):
+                for d in sorted(dims, key=lambda x: self.AXES.index(x)):
                     coords[d] = kwargs.pop(d)
 
             dims = tuple(coords.keys())
@@ -420,184 +307,11 @@ class Mesh(DataArray):
     def interpolation(self, *points, interp='linear', extrap='hold', **kwargs):
         """Interpolation
         """
+        return interpolation(self, *points, interp=interp, extrap=extrap
+                             **kwargs)
 
-        assert len(set(self.dims) & set(kwargs)) + len(points) == self.ndim, \
-            "Not enough dimensions for interpolation"
-
-        # First:
-        #   - convert points (tuple) to list,
-        #   - clean-up arguments in case: mix usage points/kwargs
-        #   - create a clean argument dict
-        points = list(points)
-
-        args = {_x : kwargs[_x] if _x in kwargs else points.pop(0)
-                for _x in self.dims}
-
-        # Compute args dimensions and check compatibility without
-        # broadcasting rules.
-        dims = np.array([len(args[_k]) if "__len__" in dir(args[_k])
-                         else 1 for _k in args])
-        assert all((dims == max(dims)) + (dims == 1)), "problème"
-
-        args = [np.asarray(args[_x], np.float64)
-                if "__len__" in dir(args[_x])
-                else np.ones((max(dims),), np.float64) * args[_x]
-                for _x in self.dims]
-
-        values = np.empty(args[0].shape)
-
-        c_params_p = c_void_p * len(self.dims)
-
-        res = evaluate_interpolation(NDTable_t(data=self),
-                            c_params_p(*[_a.ctypes.get_as_parameter()
-                                           for _a in args]),
-                              c_int(self.ndim),
-                              INTERP_METH[interp],
-                              EXTRAP_METH[extrap],
-                              c_int(values.size),
-                              values.ctypes.get_as_parameter()
-                              )
-
-        assert res == 0, 'An error occurred during interpolation'
-
-        return values[0] if len(values) == 1 else values
-
-
-    def derivate(self, *points, interp='linear', extrap='hold', n=1, **kwargs):
+    def derivate(self, *points, interp='linear', extrap='hold', **kwargs):
         """derivate
         """
-
-        assert len(set(self.dims) & set(kwargs)) + len(points) == self.ndim, \
-            "Not enough dimensions for interpolation"
-
-        # First:
-        #   - convert points (tuple) to list,
-        #   - clean-up arguments in case: mix usage points/kwargs
-        #   - create a clean argument dict
-        points = list(points)
-
-        args = {_x : kwargs[_x] if _x in kwargs else points.pop(0)
-                for _x in self.dims}
-
-        # Compute args dimensions and check compatibility without
-        # broadcasting rules.
-        dims = np.array([len(args[_k]) if "__len__" in dir(args[_k])
-                         else 1 for _k in args])
-        assert all((dims == max(dims)) + (dims == 1)), "problème"
-
-        args = [np.asarray(args[_x], np.float64)
-                if "__len__" in dir(args[_x])
-                else np.ones((max(dims),), np.float64) * args[_x]
-                for _x in self.dims]
-
-        dxi = [np.ones_like(_x) for _x in args]
-
-        values = np.empty(args[0].shape)
-
-        c_params_p = c_void_p * len(self.dims)
-
-        res = evaluate_derivative(NDTable_t(data=self),
-                              c_params_p(*[_a.ctypes.get_as_parameter()
-                                           for _a in args]),
-                              c_params_p(*[_a.ctypes.get_as_parameter()
-                                           for _a in dxi]),
-                              c_int(self.ndim),
-                              INTERP_METH[interp],
-                              EXTRAP_METH[extrap],
-                              c_int(values.size),
-                              values.ctypes.get_as_parameter()
-                              )
-
-        assert res == 0, 'An error occurred during interpolation'
-
-        return values[0] if len(values) == 1 else values
-
-    def resample(self, *points, interp='linear', extrap='hold', **kwargs):
-
-        # First:
-        #   - convert points (tuple) to list,
-        #   - clean-up arguments in case: mix usage points/kwargs
-        #   - create a clean argument dict
-
-        points = list(points)
-        args = {}
-        for d in self.dims:
-            if d in kwargs:
-                args[d] = kwargs[d]
-            else:
-                try:
-                    args[d] = points.pop(0)
-                except IndexError:
-                    args[d] = self.coords[d]
-
-        mg = np.meshgrid(*args.values(), indexing='ij')
-        #return args
-        nv = self.interpolation(*mg, interp=interp, extrap=extrap)
-        return Mesh(nv, **args)
-
-    # Plot MAP as PDF in filename
-    def plot(self, xy=False, filename=None, **kwargs):
-
-        import matplotlib.pyplot as plt
-
-        assert self.ndim <= 2, "More that two dimensions"
-
-        if self.label is None:
-            self.label = ""
-        if self.unit is None:
-            self.unit = ""
-
-        x_axis = self.coords[self.dims[0]]
-        y_axis = self.coords[self.dims[1]] if self.ndim > 1 else None
-
-        plt.xlabel(f"{x_axis.label} [{x_axis.unit}]"
-                   if x_axis.label is not None else "Label []")
-        plt.ylabel(self.label + ' [' + self.unit + ']')
-
-        if y_axis is not None:
-            for _i, _y in enumerate(y_axis.data):
-                # print("plot {}".format(_x))
-                plt.plot(x_axis.data,
-                         self.data.take(_i, axis=1),
-                         '-', linewidth=1, label=f"{_y} {y_axis.unit}",
-                         **kwargs)
-
-        else:
-            plt.plot(x_axis.data, self.data, '-', linewidth=1,
-                     label=f"{x_axis.unit}", **kwargs)
-
-        plt.legend(loc=2, borderaxespad=0., frameon=0)
-
-        if filename is not None:
-            print("Save file as " + filename)
-            plt.savefig(filename, bbox_inches='tight')
-
-    # def _repr_html_(self):
-    #     max_rows = get_option("display.max_rows")
-    #
-    #     root = ET.Element('div')
-    #     pre = ET.SubElement(root, 'p')
-    #     ET.SubElement(pre, 'code').text = f"{self.__class__.__name__ }: "
-    #     ET.SubElement(pre, 'b').text = self.label or "Label"
-    #     ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
-    #     ET.SubElement(pre, 'br')
-    #
-    #     for _a in self.dims:
-    #         axis = self.coords[_a]
-    #         #root.append(ET.fromstring(axis._repr_html_()))
-    #
-    #     return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
-# cdef struct ndtable:
-#     int shape[MAX_NDIMS]
-#     int ndim
-
-
-#	int 	shape[MAX_NDIMS]    # Array of data array dimensions.
-#	int 	strides[MAX_NDIMS]  # bytes to step in each dimension when
-								# traversing an array.
-#	int		ndim			    # Number of array dimensions.
-#	double *data			    # Buffer object pointing to the start
-								# of the array’s data.
-#	int		size			    # Number of elements in the array.
-#	int     itemsize		    # Length of one array element in bytes.
-#	double *breakpoints[MAX_NDIMS]  # array of pointers to the scale values
+        return derivate(self, *points, interp=interp, extrap=extrap,
+                        **kwargs)
