@@ -12,6 +12,9 @@ from lerp.core.config import get_option
 from functools import (partial, wraps)
 import pickle
 from xarray import DataArray
+from xarray.core.pycompat import dask_array_type
+from xarray.core.formatting import (unindexed_dims_repr, dim_summary,
+                                    short_array_repr, attrs_repr)
 
 import xml.etree.ElementTree as ET
 
@@ -295,7 +298,7 @@ class Mesh(DataArray):
                 "Redundant arguments in coords and kwargs"
 
         for info in ["label", "unit"]:
-            setattr(self, info, kwargs[info] if info in kwargs else None)
+            setattr(self, info, kwargs.pop(info) if info in kwargs else None)
 
         # print(kwargs["attrs"] if "attrs" in kwargs else None) # = {"x" :"aze"}
 
@@ -335,8 +338,8 @@ class Mesh(DataArray):
         else:
             variable = pargs[0]
             #print("fastpath", *pargs, end="END\n")
-            self.label = "Le label des x!"
-            self.unit = "%"
+            self.label = None
+            self.unit = None
 
         # These fully describe a DataArray
         self._variable = variable
@@ -346,6 +349,40 @@ class Mesh(DataArray):
         self._file_obj = None
 
         self._initialized = True
+
+        if 'fastpath' not in kwargs:
+            pass
+
+
+    def __repr__(self):
+        # used for DataArray, Variable and IndexVariable
+        if hasattr(self, 'name') and self.name is not None:
+            name_str = '%r ' % self.name
+        else:
+            name_str = u''
+
+        summary = [f'<lerp.{type(self).__name__} {name_str}({dim_summary(self)})>']
+
+
+        if isinstance(getattr(self, 'variable', self)._data, dask_array_type):
+            summary.append(short_dask_repr(self))
+        elif self._in_memory or self.size < 1e5:
+            summary.append(short_array_repr(self.values))
+        else:
+            summary.append(f'[{self.size} values with dtype={self.dtype}]')
+
+        if hasattr(self, 'coords'):
+            if self.coords:
+                summary.append(repr(self.coords))
+
+            unindexed_dims_str = unindexed_dims_repr(self.dims, self.coords)
+            if unindexed_dims_str:
+                summary.append(unindexed_dims_str)
+
+        if self.attrs:
+            summary.append(attrs_repr(self.attrs))
+
+        return u'\n'.join(summary)
 
     @property
     def options(self):
