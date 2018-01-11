@@ -307,10 +307,7 @@ class Mesh(DataArray):
     def interpolation(self, *points, interp='linear', extrap='hold', **kwargs):
         """Interpolation
         """
-        print("*"*80)
-        print(type(kwargs))
-        print("*"*80)
-        return interpolation(self, *points, interp=interp, extrap=extrap
+        return interpolation(self, *points, interp=interp, extrap=extrap,
                              **kwargs)
 
     def derivate(self, *points, interp='linear', extrap='hold', **kwargs):

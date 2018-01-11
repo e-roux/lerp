@@ -24,3 +24,4 @@ lerp/mesh.c
 lerp/mesh.cpython*
 build*
 lerp/core/*.so
+lerp/core/interpolation.c

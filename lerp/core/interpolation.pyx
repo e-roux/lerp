@@ -58,39 +58,6 @@ class NDTable_t(ctypes.Structure):
         return ctypes.byref(obj)
 
 
-# Note: recipe #15.1
-# Python Cookbook, D. Beazley
-# O'Reilly
-# Define a special type for the 'double *' argument
-# The important element is from_param
-class DoubleArrayType:
-    def from_param(self, param):
-        typename = type(param).__name__
-        if hasattr(self, 'from_' + typename):
-            return getattr(self, 'from_' + typename)(param)
-        elif isinstance(param, ctypes.Array):
-            return param
-        else:
-            raise TypeError("Can't convert %s" % typename)
-
-    # Cast from array.array objects
-    def from_array(self, param):
-        if param.typecode != 'd':
-            raise TypeError('must be an array of doubles')
-        ptr, _ = param.buffer_info()
-        return ctypes.cast(ptr, ctypes.POINTER(ctypes.c_double))
-
-    # Cast from lists/tuples
-    def from_list(self, param):
-        val = ((ctypes.c_double)*len(param))(*param)
-        return val
-
-    from_tuple = from_list
-
-    # Cast from a numpy array
-    def from_ndarray(self, param):
-        return param.ctypes.data_as(ctypes.POINTER(ctypes.c_double))
-
 ################################################################################
 # Import evaluate_interpolation
 ################################################################################
