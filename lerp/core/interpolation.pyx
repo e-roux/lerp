@@ -201,3 +201,19 @@ def derivate(self, *points, interp='linear', extrap='hold', **kwargs):
     assert res == 0, 'An error occurred during interpolation'
 
     return values[0] if len(values) == 1 else values
+
+
+# cdef struct ndtable:
+#     int shape[MAX_NDIMS]
+#     int ndim
+
+
+#	int 	shape[MAX_NDIMS]    # Array of data array dimensions.
+#	int 	strides[MAX_NDIMS]  # bytes to step in each dimension when
+								# traversing an array.
+#	int		ndim			    # Number of array dimensions.
+#	double *data			    # Buffer object pointing to the start
+								# of the array’s data.
+#	int		size			    # Number of elements in the array.
+#	int     itemsize		    # Length of one array element in bytes.
+#	double *breakpoints[MAX_NDIMS]  # array of pointers to the scale values
