@@ -30,6 +30,17 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+Changes since fork from ScientificDataFormat NDTable
+
+2017-12:
+-------
+	- remove data copy
+	- naming as in numpy
+	- derivative and interpolation
+	- Pointer to Structure NDTable_h generation in Python
+*/
+
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
@@ -53,8 +64,10 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 
 #ifdef _WIN32
 #define ISFINITE(x) _finite(x)
+#define PYTHON_API __declspec(dllexport)
 #else
 #define ISFINITE(x) isfinite(x)
+#define PYTHON_API
 #endif
 
 
@@ -86,6 +99,58 @@ static int interp_fritsch_butland (const NDTable_h table, const double *t, const
 static int interp_steffen         (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
 static int extrap_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
 static int extrap_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+
+void free(void *ptr);
+
+PYTHON_API int evaluate_derivative(
+			NDTable_h mesh,
+			const double **params,
+			const double **delta_params,
+			int ndimsparams,
+			NDTable_InterpMethod_t interp_method,
+			NDTable_ExtrapMethod_t extrap_method,
+			int resultSize,
+			double *result) {
+	int i, j;
+	double params_[32];
+	double delta_params_[32];
+
+	for(i = 0; i < resultSize; i++) {
+		for(j = 0; j < ndimsparams; j++) {
+			params_[j] = params[j][i];
+			delta_params_[j] = delta_params[j][i];
+		}
+
+		if(NDT_eval_derivative(mesh, ndimsparams, params_, delta_params_, interp_method, extrap_method, &result[i]) != NDTABLE_INTERPSTATUS_OK) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
+PYTHON_API int evaluate_interpolation(
+			NDTable_h mesh,
+			const double **params,
+			int ndimsparams,
+			NDTable_InterpMethod_t interp_method,
+			NDTable_ExtrapMethod_t extrap_method,
+			int resultSize,
+			double *result) {
+	int i, j;
+	double params_[32];
+
+	for(i = 0; i < resultSize; i++) {
+		for(j = 0; j < ndimsparams; j++) {
+			params_[j] = params[j][i];
+		}
+		if(NDT_eval(mesh, ndimsparams, params_, interp_method, extrap_method, &result[i]) != NDTABLE_INTERPSTATUS_OK) {
+			return -1;
+		}
+	}
+	return 0;
+}
+
+
 
 
 void NDTable_find_index(double value, int nvalues, const double *values,

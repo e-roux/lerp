@@ -57,7 +57,6 @@ class NDTable_t(ctypes.Structure):
     def from_param(cls, obj):
         return ctypes.byref(obj)
 
-
 ################################################################################
 # Import evaluate_interpolation
 ################################################################################
@@ -169,6 +168,8 @@ def derivate(self, *points, interp='linear', extrap='hold', **kwargs):
 
     return values[0] if len(values) == 1 else values
 
+#cdef extern from "NDTable.h":
+#    void evaluate_interpoalation(int tons)
 
 # cdef struct ndtable:
 #     int shape[MAX_NDIMS]

@@ -35,6 +35,13 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef NDTABLE_H_
 #define NDTABLE_H_
 
+#ifdef _WIN32
+#define PYTHON_API __declspec(dllexport)
+#else
+#define PYTHON_API
+#endif
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -195,6 +202,27 @@ void NDTable_calculate_offsets(int ndim, const int shape[], int strides[]);
  *	@return	the number of elements
  */
 int NDTable_calculate_size(int ndim, const int shape[]);
+
+PYTHON_API int evaluate_interpolation(
+	NDTable_h table,
+	const double **params,
+	int ndims,
+	NDTable_InterpMethod_t interp_method,
+	NDTable_ExtrapMethod_t extrap_method,
+	int nvalues,
+	double *values);
+
+PYTHON_API int evaluate_derivative(
+	NDTable_h table,
+	const double **params,
+	const double **dx,
+	int ndims,
+	NDTable_InterpMethod_t interp_method,
+	NDTable_ExtrapMethod_t extrap_method,
+	int nvalues,
+	double *values);
+
+
 
 #ifdef __cplusplus
 }
