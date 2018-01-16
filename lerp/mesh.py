@@ -150,7 +150,10 @@ class BreakPoints(np.ndarray):
 
 class Mesh(DataArray):
     """
-    # Code example
+
+
+    Example
+    -------
 
     from lerp.mesh import Mesh
 

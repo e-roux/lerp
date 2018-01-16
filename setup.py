@@ -11,14 +11,12 @@ from setuptools import setup, find_packages, Extension
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-ext_modules = [ Extension('lerp.core.libNDTable',
-                          sources = ['lerp/C/src/Core.c',
-                                     'lerp/C/src/Interpolation.c'],
-                          include_dirs = [np.get_include(), 'lerp/C/include']
-                          ),
-                Extension("lerp.core.interpolation",
+ext_modules = [ Extension("lerp.core.interpolation",
                          ["lerp/core/interpolation.pyx"],
-                          include_dirs = ['lerp/C/include'],
+                          include_dirs = [np.get_include(),
+                                          'lerp/C/include'],
+                          extra_compile_args=["-g"],
+                          extra_link_args=["-g"],
                           language='c',)
                 ]
 

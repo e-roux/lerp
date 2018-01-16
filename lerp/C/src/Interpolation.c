@@ -150,9 +150,6 @@ PYTHON_API int evaluate_interpolation(
 	return 0;
 }
 
-
-
-
 void NDTable_find_index(double value, int nvalues, const double *values,
 						int *index, double *t) {
 	int i;

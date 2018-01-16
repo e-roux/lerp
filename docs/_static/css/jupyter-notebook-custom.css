@@ -3,6 +3,32 @@
     max-width: 1400px!important;
 }
 
+.wy-nav-content {
+    min-width : 100%;
+}
+
+
+
+[role |="navigation"] ul {
+  counter-reset: item;
+}
+
+[role |="navigation"] ul {
+  list-style: none;
+}
+
+[role |="navigation"] ul li.toctree-l1 {
+  counter-increment: item;
+}
+
+[role |="navigation"] ul li.toctree-l1 > a:before {
+  border-radius: 100%;
+  content: counter(item);
+  display: inline-block;
+  margin-right: 10px;
+  text-align: center;
+}
+
 
 
 div.input_area>div.highlight>pre {
@@ -246,12 +272,11 @@ code{
         overflow: hidden;
         border: none;
     }
-    
+
 .output_area th {
         font-weight: bold;
     }
-    
+
 .output_area tbody tr:nth-child(odd) {
         background: #f5f5f5;
     }
-
