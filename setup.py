@@ -13,8 +13,7 @@ def read(fname):
 ext_modules = [ Extension('lerp.core.interp',
                           sources = ['lerp/C/src/interp.c',
                                      'lerp/C/src/core.c',
-                                     'lerp/C/src/interpolation.c',
-                                     'lerp/C/src/algorithm.c'],
+                                     'lerp/C/src/interpolation.c'],
                           include_dirs = [np.get_include(),
                                           'lerp/C/include'],
                           extra_compile_args=[

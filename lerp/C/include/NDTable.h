@@ -42,6 +42,18 @@ extern "C" {
 /*! The maximum number of dimensions */
 #define MAX_NDIMS 32
 
+
+/*! Interpolation methods */
+/*typedef enum {
+	interp_hold = 1,
+	interp_nearest,
+	interp_linear,
+	interp_akima,
+	interp_fritsch_butland,
+	interp_steffen
+} MESH_INTERP_FUNCTION;
+*/
+
 /*! Interpolation methods */
 typedef enum {
 	NDTABLE_INTERP_HOLD = 1,
@@ -79,6 +91,7 @@ typedef struct {
 	int		size;			    // Number of elements in the array.
 	int     itemsize;		    // Length of one array element in bytes.
 	double *breakpoints[MAX_NDIMS]; //!< array of pointers to the scale values
+//	interp_fun     interpmethod;		    // Function for interpolation
 } NDTable_t;
 
 typedef NDTable_t * NDTable_h;
@@ -102,7 +115,6 @@ const char * NDTable_get_error_message();
 /*! Evaluate the value of the table at the given sample point using the specified inter- and extrapolation methods
  *
  * @param [in]	table			the table handle
- * @param [in]	nparams			the number of dimensions
  * @param [in]	params			the sample point
  * @param [in]	interp_method	the interpolation method
  * @param [in]	extrap_method	the extrapolation method
@@ -110,7 +122,7 @@ const char * NDTable_get_error_message();
  *
  * @return		0 if the value could be evaluated, -1 otherwise
  */
-int NDT_eval(NDTable_h table, int nparams, const double params[], NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value);
+int NDT_eval(NDTable_h table, const double params[], NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value);
 
 /*! Evalute the total differential of the table at the given sample point and deltas using the specified inter- and extrapolation methods
  *
@@ -195,6 +207,24 @@ void NDTable_calculate_offsets(int ndim, const int shape[], int strides[]);
  *	@return	the number of elements
  */
 int NDTable_calculate_size(int ndim, const int shape[]);
+
+
+
+typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, 
+						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
+						 double *value, double derivatives[]);
+
+// forward declare inter- and extrapolation functions
+static int interp_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int interp_nearest	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int interp_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int interp_akima		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int interp_fritsch_butland (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int interp_steffen         (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int extrap_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static int extrap_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+
+
 
 #ifdef __cplusplus
 }

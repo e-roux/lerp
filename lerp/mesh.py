@@ -12,9 +12,11 @@ from xarray import DataArray
 from xarray.core.pycompat import dask_array_type
 from xarray.core.formatting import (unindexed_dims_repr, dim_summary,
                                     short_dask_repr, short_array_repr, attrs_repr)
-from lerp.core.config import get_option
+from .core.config import get_option
 
-from .core.interpolation import (interpolation, derivate)
+from .core.interpolation import derivate
+
+from .core.interp import interpolation
 
 
 _html_style = {
@@ -304,11 +306,13 @@ class Mesh(DataArray):
             else:
                 return self.interpolation(*pargs, **kwargs)
 
-    def interpolation(self, *points, interp='linear', extrap='hold', **kwargs):
+    def interpolation(self, *points, interp='linear', extrap='hold'):
         """Interpolation
         """
-        return interpolation(self, *points, interp=interp, extrap=extrap,
-                             **kwargs)
+        #print(len([self.coords[axe].data for axe in self.coords]))
+        return interpolation(self.data, [self.coords[axe].data for axe in self.coords],
+                             [pt for pt in points],
+                             interp=interp, extrap=extrap)
 
     def derivate(self, *points, interp='linear', extrap='hold', **kwargs):
         """derivate

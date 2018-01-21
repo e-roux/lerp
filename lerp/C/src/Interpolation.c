@@ -75,23 +75,10 @@ Prototype of an interpolation function
 
 @return status code
 */
-typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, 
-						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
-						 double *value, double derivatives[]);
-
-// forward declare inter- and extrapolation functions
-static int interp_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_nearest	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_akima		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_fritsch_butland (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_steffen         (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int extrap_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int extrap_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
 
 
 void NDTable_find_index(double value, int nvalues, const double *values,
-						int *index, double *t) 
+						int *index, double *weigth) 
 {
 	int i;
 	double a, b;
@@ -100,7 +87,7 @@ void NDTable_find_index(double value, int nvalues, const double *values,
 	double range = max - min;
 
 	if(nvalues < 2) {
-		*t = 0.0;
+		*weigth = 0.0;
 		*index = 0;
 		return;
 	}
@@ -117,7 +104,7 @@ void NDTable_find_index(double value, int nvalues, const double *values,
 	a = values[i];
 	b = values[i+1];
 
-	*t = (value - a) / (b - a);
+	*weigth = (value - a) / (b - a);
 
 	*index = i;
 }
@@ -205,36 +192,11 @@ binary_search_with_guess(const double key, const double *arr,
     return imin - 1;
 }
 
-
-int NDT_eval(NDTable_h table, int nparams, const double params[],
-	 				 NDTable_InterpMethod_t interp_method,
-					 NDTable_ExtrapMethod_t extrap_method, double *value) {
-	int		 i;
-	double	 t	   [MAX_NDIMS]; // the weights for the interpolation
-	int		 subs  [MAX_NDIMS];	// the subscripts
-	int		 nsubs [MAX_NDIMS];	// the neighboring subscripts
-	double	 derivatives [MAX_NDIMS];
-
-	// TODO: add null check
-
-	// if the dataset is scalar return the value
-	if (table->ndim == 0) {
-		*value = table->data[0];
-		return NDTABLE_INTERPSTATUS_OK;
-	}
-
-	// find entry point and weights
-	for (i = 0; i < table->ndim; i++) {
-		NDTable_find_index(params[i], table->shape[i], table->breakpoints[i],
-			 			   &subs[i], &t[i]);
-	}
-
-	return NDT_eval_internal(table, t, subs, nsubs, 0, interp_method,
-		 					 extrap_method, value, derivatives);
-}
-
 int NDT_eval_derivative(NDTable_h table, int nparams,
-							const double params[], const double delta_params[], NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value) {
+						const double params[], const double delta_params[], 
+						NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method,
+						double *value)
+{
 	int		 i, err;
 	double	 t[MAX_NDIMS];		// the weights for the interpolation
 	int		 subs[MAX_NDIMS];	// the subscripts
@@ -268,12 +230,17 @@ int NDT_eval_derivative(NDTable_h table, int nparams,
 	return 0;
 }
 
-int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]) {
+int NDT_eval_internal(const NDTable_h table, const double *weigths, const int *subs, 
+					  int *nsubs, int dim,
+					  NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method,
+					  double *value, double derivatives[])
+{
 
 	interp_fun func;
 
 	// check arguments
-	if (table == NULL || t == NULL || subs == NULL || nsubs == NULL || value == NULL || derivatives == NULL) {
+	if (weigths == NULL || subs == NULL || nsubs == NULL || 
+		value == NULL || derivatives == NULL) {
 		return -1;
 	}
 
@@ -285,7 +252,7 @@ int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, i
 	// find the right function:
 	if(table->shape[dim] < 2) {
 		func = interp_hold;
-	} else if (t[dim] < 0.0 || t[dim] > 1.0) {
+	} else if (weigths[dim] < 0.0 || weigths[dim] > 1.0) {
 		// extrapolate
 		switch (extrap_method) {
 		case NDTABLE_EXTRAP_HOLD:
@@ -304,6 +271,7 @@ int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, i
 		}
 	} else {
 		// interpolate
+//		func = interp_linear;
 		switch (interp_method) {
 		case NDTABLE_INTERP_HOLD:	         func = interp_hold;            break;
 		case NDTABLE_INTERP_NEAREST:         func = interp_nearest;         break;
@@ -315,7 +283,7 @@ int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, i
 		}
 	}
 
-	return (*func)(table, t, subs, nsubs, dim, interp_method, extrap_method, value, derivatives);
+	return (*func)(table, weigths, subs, nsubs, dim, interp_method, extrap_method, value, derivatives);
 }
 
 static int interp_hold(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
@@ -694,3 +662,7 @@ static int extrap_linear(const NDTable_h table, const double *t, const int *subs
 
 	return 0;
 }
+
+
+
+
