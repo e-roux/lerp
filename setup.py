@@ -2,7 +2,6 @@
 
 import os
 import numpy as np
-# from Cython.Distutils import build_ext
 from setuptools import setup, find_packages, Extension
 # from setuptools.config import read_configuration
 # conf_dict = read_configuration('./setup.cfg')
@@ -11,16 +10,17 @@ from setuptools import setup, find_packages, Extension
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-ext_modules = [ Extension('lerp.core.libNDTable',
-                          sources = ['lerp/C/src/Python.c',
-                                     'lerp/C/src/Core.c',
-                                     'lerp/C/src/Interpolation.c'],
-                          include_dirs = [np.get_include(), 'lerp/C/include']
-                          ),
-                # Extension("lerp.mesh",
-                #         ["lerp/mesh.pyx"],
-                #         language='c',)
-                ]
+ext_modules = [ Extension('lerp.core.interp',
+                          sources = ['lerp/C/src/interp.c',
+                                     'lerp/C/src/core.c',
+                                     'lerp/C/src/interpolation.c',
+                                     'lerp/C/src/algorithm.c'],
+                          include_dirs = [np.get_include(),
+                                          'lerp/C/include'],
+                          extra_compile_args=[
+                                    '-Wall',
+                                    '-Wno-unused-function',
+                                    '-Wno-unused-variable'])]
 
 setup(
     author=" Emmanuel Roux",
@@ -34,7 +34,6 @@ setup(
         ],
     description="Lookup table facility in python on top of numpy", download_url="https://github.com/gwin-zegal/lerp/releases/\
         tag/untagged-01068bebf35469123485",
-#    cmdclass = {'build_ext': build_ext},
     ext_modules = ext_modules,
     install_requires=['numpy', 'scipy', 'matplotlib', 'pandas'],
     keywords="interpolation, lookup table",

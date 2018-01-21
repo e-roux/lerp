@@ -75,7 +75,9 @@ Prototype of an interpolation function
 
 @return status code
 */
-typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, 
+						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
+						 double *value, double derivatives[]);
 
 // forward declare inter- and extrapolation functions
 static int interp_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
@@ -89,7 +91,8 @@ static int extrap_linear	      (const NDTable_h table, const double *t, const in
 
 
 void NDTable_find_index(double value, int nvalues, const double *values,
-						int *index, double *t) {
+						int *index, double *t) 
+{
 	int i;
 	double a, b;
 	double min = values[0];
