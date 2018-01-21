@@ -152,11 +152,11 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
     } 
     else if (strcmp(interp_method, "akima") == 0) 
     {
-        interpmethod = NDTABLE_INTERP_FRITSCH_BUTLAND;
+        interpmethod = NDTABLE_INTERP_AKIMA;
     } 
     else if (strcmp(interp_method, "fritsch_butland") == 0) 
     {
-        interpmethod = NDTABLE_INTERP_STEFFEN;
+        interpmethod = NDTABLE_INTERP_FRITSCH_BUTLAND;
     }     
     else if (strcmp(interp_method, "steffen") == 0) 
     {

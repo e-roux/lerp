@@ -5,10 +5,7 @@ lerp : Lookup Table
     :alt: Documentation Status
     :target: https://lerp.readthedocs.io/en/latest/?badge=latest
 
-.. |codacy| image:: https://api.codacy.com/project/badge/Grade/66954913da4d48c6ade3bf3f436092b0
-    :target: https://www.codacy.com/app/gwin-zegal/lerp?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=gwin-zegal/lerp&amp;utm_campaign=Badge_Grade
-
-|docs| |codacy|
+|docs|
 
 
 ``lerp`` aims to supply lookup table facility in python on top of numpy.
