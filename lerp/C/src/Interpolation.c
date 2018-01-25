@@ -1,668 +1,444 @@
+
 /*
-BSD 3-Clause License
+PyObject* PyArray_SearchSorted(PyArrayObject* self, PyObject* values, NPY_SEARCHSIDE side, PyObject* perm)
 
-Copyright (c) 2017, Dassault Systemes.
-All rights reserved.
+https://docs.scipy.org/doc/numpy-1.13.0/reference/c-api.array.html#c.PyArray_SearchSorted
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
+https://gist.github.com/saghul/1121260
 
-* Redistributions of source code must retain the above copyright notice, this
-  list of conditions and the following disclaimer.
 
-* Redistributions in binary form must reproduce the above copyright notice,
-  this list of conditions and the following disclaimer in the documentation
-  and/or other materials provided with the distribution.
-
-* Neither the name of the copyright holder nor the names of its
-  contributors may be used to endorse or promote products derived from
-  this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Reference count: http://edcjones.tripod.com/refcount.html
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
+#define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
+#include <Python.h>
 #include <stdio.h>
-#include <float.h>
-
-#include "NDTable.h"
-
-#ifndef MAX
-#define MAX(a,b) (((a) > (b)) ? (a) : (b))
-#endif
-
-#ifndef MIN
-#define MIN(a,b) (((a) < (b)) ? (a) : (b))
-#endif
-
-#ifndef NAN
-static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
-#define NAN (*(const float *) __nan)
-#endif
-
-#ifdef _WIN32
-#define ISFINITE(x) _finite(x)
-#else
-#define ISFINITE(x) isfinite(x)
-#endif
+#include <structmember.h>
+#include <numpy/arrayobject.h>
+#include <NDTable.h>
 
 
-#define LIKELY_IN_CACHE_SIZE 8
-
-/**
-Prototype of an interpolation function
-
-@param  table			[in]		table handle
-@param  t				[in]		weights for the interpolation (normalized)
-@param  subs			[in]		subscripts of the left sample point
-@param  nsubs			[in,out]	subscripts of the right (next) sample point
-@param  dim				[in]		index of the current dimension
-@param  interp_method	[in]		index of the current dimension
-@param  extrap_method	[in]		index of the current dimension
-@param  value			[out]		interpoated value
-@param  derivatives		[out]		partial derivatives
-
-@return status code
-*/
+#define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
 
 
-void NDTable_find_index(double value, int nvalues, const double *values,
-						int *index, double *weigth) 
-{
-	int i;
-	double a, b;
-	double min = values[0];
-	double max = values[nvalues - 1];
-	double range = max - min;
+NDTable_h Mesh2NDTable(PyObject *mesh);
 
-	if(nvalues < 2) {
-		*weigth = 0.0;
-		*index = 0;
-		return;
-	}
 
-	// estimate the index and make sure that i >= 0 and i <= 2nd last
-	i = MAX(0, MIN((int)(nvalues * (value - min) / range), nvalues - 2));
+int evaluate_interpolation(NDTable_h mesh, const double **params, int params_size,
+                           NDTable_InterpMethod_t interp_method,
+                           NDTable_ExtrapMethod_t extrap_method,
+                           double *result);
 
-	// go up until value < values[i+1]
-	while (i < nvalues - 2 && value > values[i+1]) { i++; }
+static PyObject *interpolation(PyObject *self, PyObject *args, PyObject *kwargs);
 
-	// go down until values[i] < value
-	while (i > 0 && value < values[i]) { i--; }
 
-	a = values[i];
-	b = values[i+1];
 
-	*weigth = (value - a) / (b - a);
+NDTable_h Mesh2NDTable(PyObject *mesh){
 
-	*index = i;
+    // TODO : check that mesh is subclass of xarray
+    // PyObject_IsSubclass(mesh , (PyObject*))
+    /*    if (!PyArray_Check(data_array))
+            goto out;
+    */
+    // Cast data to double
+    PyArrayObject *array = ARRAYD64(PyObject_GetAttrString(mesh, "data"));
+   
+    // coords
+    PyObject *coords = PyObject_GetAttrString(mesh, "coords");
+    PyObject *variable = PyObject_GetAttrString(mesh, "variable");
+    PyObject *coords_list = PyObject_GetAttrString(mesh, "dims");
+
+    PyObject *key;
+
+    // Check that data array has the same dim number as coords
+    if (PySequence_Length(coords_list) != PyArray_NDIM(array)) {
+        PyErr_SetString(PyExc_ValueError, "Data and bkpts have different shapes");
+        // todo : exit
+    }
+
+    NDTable_h output = (NDTable_h) malloc(sizeof(NDTable_t));
+
+    npy_intp *shape_x = PyArray_DIMS(array);
+
+    output->ndim = PyArray_NDIM(array);
+    for (Py_ssize_t j=0; j < output->ndim; j++) {
+        output->shape[j] = shape_x[j];
+
+        if (PyTuple_Check(coords_list)) {
+            /* PySequence_GetItem INCREFs key. */
+            key = PyTuple_GetItem(coords_list, j);
+        }
+
+       PyObject *axis = PyObject_GetAttrString(mesh, (char *)PyUnicode_AS_DATA(key));
+
+       Py_DECREF(key);
+
+        PyArrayObject *coords_tmp =  ARRAYD64(axis);
+        output->coords[j] = PyArray_DATA(coords_tmp);
+
+        Py_DECREF(axis);
+    }
+    output->data = PyArray_DATA(array);
+    output->size = PyArray_SIZE(array);
+    output->itemsize = PyArray_ITEMSIZE(array);
+//    output->interpmethod = *interp_linear;
+
+    Py_DECREF(coords_list);
+    Py_DECREF(coords);
+    Py_DECREF(array);
+
+    return output;
+
 }
 
-static unsigned int
-binary_search_with_guess(const double key, const double *arr,
-                         unsigned int len, unsigned int guess)
-{
-    unsigned int imin = 0;
-    unsigned int imax = len;
 
-    /* Handle keys outside of the arr range first */
-    if (key > arr[len - 1]) {
-        return len;
-    }
-    else if (key < arr[0]) {
-        return -1;
-    }
+NDTable_InterpMethod_t get_interp_method(char *method) {
 
-    /*
-     * If len <= 4 use linear search.
-     * From above we know key >= arr[0] when we start.
-     */
-    if (len <= 4) {
-        unsigned int i;
+    // Set interpolation method, default to linear
+    NDTable_InterpMethod_t interpmethod;
 
-        for (i = 1; i < len && key >= arr[i]; ++i);
-        return i - 1;
-    }
-
-    if (guess > len - 3) {
-        guess = len - 3;
-    }
-    if (guess < 1)  {
-        guess = 1;
-    }
-
-    /* check most likely values: guess - 1, guess, guess + 1 */
-    if (key < arr[guess]) {
-        if (key < arr[guess - 1]) {
-            imax = guess - 1;
-            /* last attempt to restrict search to items in cache */
-            if (guess > LIKELY_IN_CACHE_SIZE &&
-                        key >= arr[guess - LIKELY_IN_CACHE_SIZE]) {
-                imin = guess - LIKELY_IN_CACHE_SIZE;
-            }
-        }
-        else {
-            /* key >= arr[guess - 1] */
-            return guess - 1;
-        }
+    if (strcmp(method, "hold") == 0) {
+        interpmethod = NDTABLE_INTERP_HOLD;
+    } 
+    else if (strcmp(method, "nearest") == 0) {
+        interpmethod = NDTABLE_INTERP_NEAREST;
+    } 
+    else if (strcmp(method, "linear") == 0) {
+        interpmethod = NDTABLE_INTERP_LINEAR;
+    } 
+    else if (strcmp(method, "akima") == 0) {
+        interpmethod = NDTABLE_INTERP_AKIMA;
+    } 
+    else if (strcmp(method, "fritsch_butland") == 0) {
+        interpmethod = NDTABLE_INTERP_FRITSCH_BUTLAND;
+    }     
+    else if (strcmp(method, "steffen") == 0) {
+        interpmethod = NDTABLE_INTERP_STEFFEN;
     }
     else {
-        /* key >= arr[guess] */
-        if (key < arr[guess + 1]) {
-            return guess;
-        }
-        else {
-            /* key >= arr[guess + 1] */
-            if (key < arr[guess + 2]) {
-                return guess + 1;
-            }
-            else {
-                /* key >= arr[guess + 2] */
-                imin = guess + 2;
-                /* last attempt to restrict search to items in cache */
-                if (guess < len - LIKELY_IN_CACHE_SIZE - 1 &&
-                            key < arr[guess + LIKELY_IN_CACHE_SIZE]) {
-                    imax = guess + LIKELY_IN_CACHE_SIZE;
-                }
-            }
-        }
+        interpmethod = NDTABLE_INTERP_LINEAR;
     }
 
-    /* finally, find index by bisection */
-    while (imin < imax) {
-        const unsigned int imid = imin + ((imax - imin) >> 1);
-        if (key >= arr[imid]) {
-            imin = imid + 1;
-        }
-        else {
-            imax = imid;
-        }
+    return interpmethod;
+}
+
+NDTable_ExtrapMethod_t get_extrap_method(char *method) {
+
+    // Set extrapolation method, default to hold
+    NDTable_ExtrapMethod_t extrapmethod;
+
+    if (strcmp(method, "hold") == 0) {
+        extrapmethod = NDTABLE_EXTRAP_HOLD;
+    } 
+    else if (strcmp(method, "linear") == 0) {
+        extrapmethod = NDTABLE_EXTRAP_LINEAR;
+    } 
+    else {
+        extrapmethod = NDTABLE_EXTRAP_HOLD;
     }
-    return imin - 1;
+
+    return extrapmethod;
 }
 
-int NDT_eval_derivative(NDTable_h table, int nparams,
-						const double params[], const double delta_params[], 
-						NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method,
-						double *value)
-{
-	int		 i, err;
-	double	 t[MAX_NDIMS];		// the weights for the interpolation
-	int		 subs[MAX_NDIMS];	// the subscripts
-	int		 nsubs[MAX_NDIMS];	// the neighboring subscripts
-	double	 derivatives[MAX_NDIMS];
 
-	// TODO: add null check
 
-	// if the dataset is scalar return the value
-	if (table->ndim == 0) {
-		*value = table->data[0];
-		return NDTABLE_INTERPSTATUS_OK;
-	}
-
-	// find entry point and weights
-	for (i = 0; i < table->ndim; i++) {
-		NDTable_find_index(params[i], table->shape[i], table->breakpoints[i],
-			 			   &subs[i], &t[i]);
-	}
-
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, 0, interp_method, extrap_method, value, derivatives)) != 0) {
-		return err;
-	}
-
-	*value = 0.0;
-
-	for (i = 0; i < nparams; i++) {
-		*value += delta_params[i] * derivatives[i];
-	}
-
-	return 0;
-}
-
-int NDT_eval_internal(const NDTable_h table, const double *weigths, const int *subs, 
-					  int *nsubs, int dim,
-					  NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method,
-					  double *value, double derivatives[])
+int evaluate_interpolation( NDTable_h mesh, const double **params, int params_size,
+            NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method,
+            double *result)
 {
 
-	interp_fun func;
+    int      index[NPY_MAXDIMS]; // the subscripts
+    int      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
+    double   derivatives[NPY_MAXDIMS];
+    double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
 
-	// check arguments
-	if (weigths == NULL || subs == NULL || nsubs == NULL || 
-		value == NULL || derivatives == NULL) {
-		return -1;
-	}
-
-	if (dim >= table->ndim) {
-		*value = NDTable_get_value_subs(table, nsubs);
-		return 0;
-	}
-
-	// find the right function:
-	if(table->shape[dim] < 2) {
-		func = interp_hold;
-	} else if (weigths[dim] < 0.0 || weigths[dim] > 1.0) {
-		// extrapolate
-		switch (extrap_method) {
-		case NDTABLE_EXTRAP_HOLD:
-			func = extrap_hold;
-			break;
-		case NDTABLE_EXTRAP_LINEAR:
-			switch (interp_method) {
-			case NDTABLE_INTERP_AKIMA:           func = interp_akima;           break;
-			case NDTABLE_INTERP_FRITSCH_BUTLAND: func = interp_fritsch_butland; break;
-			default:                             func = extrap_linear;			break;
-			}
-			break;
-		default:
-			NDTable_set_error_message("Requested value is outside data range");
-			return -1;
-		}
-	} else {
-		// interpolate
-//		func = interp_linear;
-		switch (interp_method) {
-		case NDTABLE_INTERP_HOLD:	         func = interp_hold;            break;
-		case NDTABLE_INTERP_NEAREST:         func = interp_nearest;         break;
-		case NDTABLE_INTERP_LINEAR:          func = interp_linear;          break;
-		case NDTABLE_INTERP_AKIMA:			 func = interp_akima;           break;
-		case NDTABLE_INTERP_FRITSCH_BUTLAND: func = interp_fritsch_butland; break;
-		case NDTABLE_INTERP_STEFFEN:         func = interp_steffen;         break;
-		default: return -1; // TODO: set error message
-		}
-	}
-
-	return (*func)(table, weigths, subs, nsubs, dim, interp_method, extrap_method, value, derivatives);
-}
-
-static int interp_hold(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-	nsubs[dim] = subs[dim]; // always take the left sample value
-	der_values[dim] = 0;
-	return NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, value, der_values);
-}
-
-static int interp_nearest(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-	int err;
-	nsubs[dim] = t[dim] < 0.5 ? subs[dim] : subs[dim] + 1;
-	der_values[dim] = 0;
-
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, value, der_values)) != 0) {
-		return err;
-	}
-
-	// if the value is not finite return NAN
-	if (!ISFINITE(*value)) {
-		*value = NAN;
-		der_values[dim] = NAN;
-	}
-
-	return 0;
-}
-
-static int interp_linear(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-	int err;
-	double a, b;
-
-	// get the left value
-	nsubs[dim] = subs[dim];
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &a, der_values)) != 0) {
-		return err;
-	}
-
-	// get the right value
-	nsubs[dim] = subs[dim] + 1;
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &b, der_values)) != 0) {
-		return err;
-	}
-
-	// if any of the values is not finite return NAN
-	if (!ISFINITE(a) || !ISFINITE(b)) {
-		*value = NAN;
-		der_values[dim] = NAN;
-		return 0;
-	}
-
-	// calculate the interpolated value
-	*value = (1 - t[dim]) * a + t[dim] * b;
-
-	// calculate the derivative
-	der_values[dim] = (b - a) / (table->breakpoints[dim][subs[dim] + 1] - table->breakpoints[dim][subs[dim]]);
-
-	return 0;
-}
-
-static void cubic_hermite_spline(const double x0, const double x1, const double y0, const double y1, const double t, const double c[4], double *value, double *derivative) {
-
-	double v;
-
-	if (t < 0) { // extrapolate left
-
-		*value = y0 + c[2] * ((x1 - x0) * t);
-		*derivative = c[2];
-
-	} else if (t <= 1) { // interpolate
-
-		v = (x1 - x0) * t;
-		*value = ((c[0] * v + c[1]) * v + c[2]) * v + c[3];
-		*derivative = (3 * c[0] * v + (2 * c[1])) * v + c[2];
-
-	} else { // extrapolate right
-
-		v = x1 - x0;
-		*value = y1 +   ((3 * c[0] * v + 2 * c[1]) * v + c[2]) * (v * (t - 1));
-		*derivative = (3 * c[0] * v + 2 * c[1]) * v + c[2];
-	}
-}
-
-static int interp_akima(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-
-	double x[6] = { 0, 0, 0, 0, 0, 0};
-	double y[6] = { 0, 0, 0, 0, 0, 0};
-	double c[4] = { 0, 0, 0, 0 };	   // spline coefficients
-    double d[5] = { 0, 0, 0, 0, 0 };   // divided differences
-    double c2   = 0;
-	double dx   = 0;
-	double a    = 0;
-	// double v    = 0;
-
-	int n = table->shape[dim]; // extent of the current dimension
-	int sub = subs[dim];      // subscript of current dimension
-	int err, i, idx;
-
-	for (i = 0; i < 6; i++) {
-		idx = sub - 2 + i;
-
-		if (idx >= 0 && idx < n) {
-			x[i] = table->breakpoints[dim][idx];
-
-			nsubs[dim] = idx;
-			if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &y[i], der_values)) != 0) {
-				return err;
-			}
-		}
-	}
-
-	// if any of the values is not finite return NAN
-	for (i = 0; i < 6; i++) {
-		if (!ISFINITE(y[i])) {
-			*value = NAN;
-			der_values[dim] = NAN;
-			return 0;
-		}
-	}
-
-	// calculate the divided differences
-	for (i = MAX(0, 2 - sub); i < MIN(5, 1 + n - sub); i++) {
-		d[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]);
-	}
-
-	// pad left
-	if (sub < 2) {
-		if (sub < 1) {
-			d[1] = 2.0 * d[2] - d[3];
-		}
-		d[0] = 2.0 * d[1] - d[2];
-	}
-
-	// pad right
-	if (sub > n - 4) {
-		if (sub > n - 3) {
-			d[3] = 2.0 * d[2] - d[1];
-		}
-		d[4] = 2.0 * d[3] - d[2];
-	}
-
-    // initialize the left boundary slope
-    c2 = fabs(d[3] - d[2]) + fabs(d[1] - d[0]);
-
-	if (c2 > 0) {
-        a = fabs(d[1] - d[0]) / c2;
-        c2 = (1 - a) * d[1] + a * d[2];
-    } else {
-        c2 = 0.5 * d[1] + 0.5 * d[2];
+    // if the dataset is scalar return the value
+    if (mesh->ndim == 0) {
+        *result = mesh->data[0];
+        return NDTABLE_INTERPSTATUS_OK;
     }
 
-    // calculate the coefficients
-	dx = x[3] - x[2];
+    // TODO: add null check
 
-    c[2] = c2;
-    c2 = fabs(d[4] - d[3]) + fabs(d[2] - d[1]);
+    // Iteration over each points
+    for(int i = 0; i < params_size; i++) {
+        // set array of parameter in each direction
+        for(int j = 0; j < mesh->ndim; j++) {
+            // Find index and weights
+            NDTable_find_index(params[j][i], mesh->shape[j], mesh->coords[j],
+                               &index[j], &weigths[j]);
+        }
+        int status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
+                                        extrap_method, &result[i], derivatives);
 
-	if (c2 > 0) {
-        a = fabs(d[2] - d[1]) / c2;
-        c2 = (1 - a) * d[2] + a * d[3];
-    } else {
-        c2 = 0.5 * d[2] + 0.5 * d[3];
-    }
-
-	c[1] = (3 * d[2] - 2 * c[2] - c2) / dx;
-	c[0] = (c[2] + c2 - 2 * d[2]) / (dx * dx);
-
-	c[3] = y[2];
-
-	cubic_hermite_spline(x[2], x[3], y[2], y[3], t[dim], c, value, &der_values[dim]);
-
-	return 0;
-}
-
-static int interp_fritsch_butland(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-
-	double x [4] = { 0, 0, 0, 0 };
-	double y [4] = { 0, 0, 0, 0 };
-	double dx[3] = { 0, 0, 0 };
-	double d [3] = { 0, 0, 0 };    // divided differences
-    double c [4] = { 0, 0, 0, 0 }; // spline coefficients
-    double c2    = 0;
-
-	int n = table->shape[dim]; // extent of the current dimension
-	int sub = subs[dim];      // subscript of current dimension
-	int err, i, idx;
-
-	for (i = 0; i < 4; i++) {
-		idx = sub - 1 + i;
-
-		if (idx >= 0 && idx < n) {
-			x[i] = table->breakpoints[dim][idx];
-
-			nsubs[dim] = idx;
-			if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &y[i], der_values)) != 0) {
-				return err;
-			}
-		}
-	}
-
-	// if any of the values is not finite return NAN
-	for (i = 0; i < 4; i++) {
-		if (!ISFINITE(y[i])) {
-			*value = NAN;
-			der_values[dim] = NAN;
-			return 0;
-		}
-	}
-
-	// calculate the divided differences
-	//for (i = MAX(0, 1 - sub); i < MIN(3, n - 1 - sub); i++) {
-	for (i = 0; i < 3; i++) {
-		dx[i] = x[i + 1] - x[i];
-		d[i] = (y[i + 1] - y[i]) / dx[i];
-	}
-
-    // initialize the left boundary slope
-
-    // calculate the coefficients
-
-	if (sub == 0) {
-        c2 = d[1];
-    } else if (d[0] == 0 || d[1] == 0 || (d[0] < 0 && d[1] > 0) || (d[0] > 0 && d[1] < 0)) {
-        c2 = 0;
-     } else {
- 		c2 = 3 * (dx[0] + dx[1]) / ((dx[0] + 2 * dx[1]) / d[0] + (dx[1] + 2 * dx[0]) / d[1]);
- 	}
-
-    c[2] = c2;
-
-    if (sub == n - 2) {
-        c2 = d[1];
-    } else if (d[1] == 0 || d[2] == 0 || (d[1] < 0 && d[2] > 0) || (d[1] > 0 && d[2] < 0)) {
-        c2 = 0;
-     } else {
- 		c2 = 3 * (dx[1] + dx[2]) / ((dx[1] + 2 * dx[2]) / d[1] + (dx[2] + 2 * dx[1]) / d[2]);
- 	}
-
-    c[1] = (3 * d[1] - 2 * c[2] - c2) / dx[1];
-    c[0] = (c[2] + c2 - 2 * d[1]) / (dx[1] * dx[1]);
-
-    c[3] = y[1];
-
-	cubic_hermite_spline(x[1], x[2], y[1], y[2], t[dim], c, value, &der_values[dim]);
-
-	return 0;
-}
-
-static int interp_steffen(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-
-	double x [4] = { 0, 0, 0, 0 };
-	double y [4] = { 0, 0, 0, 0 };
-	double dx[3] = { 0, 0, 0 };
-	double d [3] = { 0, 0, 0 };    // divided differences
-    double c [4] = { 0, 0, 0, 0 }; // spline coefficients
-    double c2    = 0;
-
-	const int n   = table->shape[dim]; // extent of the current dimension
-	const int sub = subs[dim];      // subscript of current dimension
-	int err, i, idx;
-
-	for (i = 0; i < 4; i++) {
-		idx = sub - 1 + i;
-
-		if (idx >= 0 && idx < n) {
-			x[i] = table->breakpoints[dim][idx];
-
-			nsubs[dim] = idx;
-			if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &y[i], der_values)) != 0) {
-				return err;
-			}
-		}
-	}
-
-	// if any of the values is not finite return NAN
-	for (i = 0; i < 4; i++) {
-		if (!ISFINITE(y[i])) {
-			*value = NAN;
-			der_values[dim] = NAN;
-			return 0;
-		}
-	}
-
-	// calculate the divided differences
-	for (i = 0; i < 3; i++) {
-		dx[i] = x[i + 1] - x[i];
-		d[i] = (y[i + 1] - y[i]) / dx[i];
-	}
-
-	// calculate the coefficients
-	if (sub == 0) {
-        c2 = d[1];
-    } else if (d[0] == 0 || d[1] == 0 || (d[0] < 0 && d[1] > 0) || (d[0] > 0 && d[1] < 0)) {
-        c2 = 0;
-    } else {
-        double half_abs_c2, abs_di, abs_di1;
-        c2 = (d[0] * dx[1] + d[1] * dx[0]) / (dx[0] + dx[1]);
-        half_abs_c2 = 0.5 * fabs(c2);
-        abs_di = fabs(d[0]);
-        abs_di1 = fabs(d[1]);
-        if (half_abs_c2 > abs_di || half_abs_c2 > abs_di1) {
-            const double two_a = d[0] > 0 ? 2 : -2;
-            c2 = two_a*(abs_di < abs_di1 ? abs_di : abs_di1);
+        if(status != NDTABLE_INTERPSTATUS_OK) {
+            return -1;
         }
     }
 
-    c[2] = c2;
+    return 0;
 
-	if (sub == n - 2) {
-        c2 = d[1];
-    } else if (d[1] == 0 || d[2] == 0 || (d[1] < 0 && d[2] > 0) || (d[1] > 0 && d[2] < 0)) {
-        c2 = 0;
-    } else {
-        double half_abs_c2, abs_di, abs_di1;
-        c2 = (d[1] * dx[2] + d[2] * dx[1]) / (dx[1] + dx[2]);
-        half_abs_c2 = 0.5 * fabs(c2);
-        abs_di = fabs(d[1]);
-        abs_di1 = fabs(d[2]);
-        if (half_abs_c2 > abs_di || half_abs_c2 > abs_di1) {
-            const double two_a = d[1] > 0 ? 2 : -2;
-            c2 = two_a*(abs_di < abs_di1 ? abs_di : abs_di1);
+}
+
+static PyObject *
+interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int err;
+    PyObject *ret = NULL;
+
+    PyArrayObject *result_array = NULL;
+
+    PyObject *mesh = NULL;
+    PyObject *targets = NULL;
+
+    npy_intp params_size;
+
+    // Set interpolation option, default to linear
+    // Set extrapolation option, default to hold
+    char *interp_method = "linear",
+         *extrap_method = "hold";
+
+    static char *kwlist[] = {"mesh", "targets", "interp", "extrap", NULL};
+
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|ss", kwlist, &mesh, &targets,
+                                     &interp_method, &extrap_method))
+		goto out;
+
+    NDTable_InterpMethod_t interpmethod = get_interp_method(interp_method);
+    NDTable_ExtrapMethod_t extrapmethod = get_extrap_method(extrap_method);
+
+    // Create NDTable_h
+    NDTable_h example = Mesh2NDTable(mesh);
+
+    Py_ssize_t ndimsparams = PySequence_Size(targets);
+
+    double *params[NPY_MAXDIMS];
+
+    for (int j=0; j < example->ndim; j++) {
+        PyArrayObject *axis = ARRAYD64(PyList_GetItem(targets, j));
+        params[j] = PyArray_DATA(axis);
+
+        if (j==0) {
+            params_size = PyArray_SIZE(axis);
+            result_array = (PyArrayObject *) PyArray_NewLikeArray(axis, NPY_CORDER, NULL, 1);
         }
     }
 
-    c[1] = (3 * d[1] - 2 * c[2] - c2) / dx[1];
-    c[0] = (c[2] + c2 - 2 * d[1]) / (dx[1] * dx[1]);
-    c[3] = y[1];
+    if (result_array == NULL) {
+        goto out;
+    }
 
-	cubic_hermite_spline(x[1], x[2], y[1], y[2], t[dim], c, value, &der_values[dim]);
+    err = evaluate_interpolation(example, (const double **) &params, params_size,
+                                 interpmethod, extrapmethod,
+                                 (double *) PyArray_DATA(result_array));
 
-	return 0;
+    if (err != 0) {
+        PyErr_Format(PyExc_ValueError, "Error %d occured in fancy_algorithm", err);
+        goto out;
+    }
+    Py_XINCREF(result_array);
+
+
+	ret = Py_BuildValue("O", (PyObject *) result_array);
+ out:
+    Py_XDECREF(result_array);
+    return ret;
 }
 
-static int extrap_hold(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-	int err;
-	nsubs[dim] = t[dim] < 0.0 ? subs[dim] : subs[dim] + 1;
-	der_values[dim] = 0;
+int evaluate_derivate(
+            NDTable_h mesh,
+            const double **params,
+            int params_size,
+            NDTable_InterpMethod_t interp_method,
+            NDTable_ExtrapMethod_t extrap_method,
+            double *result) 
+{
+    int      index[NPY_MAXDIMS]; // the subscripts
+    int      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
+    double   derivatives[NPY_MAXDIMS];
+    double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
 
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, value, der_values)) != 0) {
-		return err;
-	}
+    // if the dataset is scalar return the value
+    if (mesh->ndim == 0) {
+        *result = mesh->data[0];
+        return NDTABLE_INTERPSTATUS_OK;
+    }
 
-	// if the value is not finite return NAN
-	if (!ISFINITE(*value)) {
-		*value = NAN;
-		der_values[dim] = NAN;
-	}
+    // Iteration over each points
+    for(int i = 0; i < params_size; i++) {
+        // set array of parameter in each direction
+        for(int j = 0; j < mesh->ndim; j++) {
+            // Find index and weights
+            NDTable_find_index(params[j][i], mesh->shape[j], mesh->coords[j],
+                               &index[j], &weigths[j]);
+        }
+        int status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
+                                        extrap_method, &result[i], derivatives);
 
-	return 0;
+        if(status != NDTABLE_INTERPSTATUS_OK) {
+            return -1;
+        }
+
+    /*        *result[i] = 0.0;
+
+            for (int k = 0; k < mesh->ndim; k++) {
+                *result[i] += params[j][i] * derivatives[i];
+            }
+    */
+
+    }
+
+    return 0;
+
 }
 
-static int extrap_linear(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double der_values[]) {
-	int err;
-	double a, b;
+static PyObject *
+derivate(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+    int err;
+    PyObject *ret = NULL;
 
-	nsubs[dim] = subs[dim];
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &a, der_values)) != 0) {
-		return err;
-	}
+    PyArrayObject *result_array = NULL;
 
-	nsubs[dim] = subs[dim] + 1;
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &b, der_values)) != 0) {
-		return err;
-	}
+    // PyArrayObject *data_array = NULL;
+    PyObject *mesh = NULL;
+    PyObject *bkpts = NULL;
+    PyObject *targets = NULL;
 
-	// if any of the values is not finite return NAN
-	if (!ISFINITE(a) || !ISFINITE(b)) {
-		*value = NAN;
-		der_values[dim] = NAN;
-		return 0;
-	}
+    int bkptsMaxLength = 1;
 
-	// calculate the extrapolated value
-	*value = (1 - t[dim]) * a + t[dim] * b;
+    npy_intp params_size;
 
-	// calculate the derivative
-	der_values[dim] = (b - a) / (table->breakpoints[dim][subs[dim] + 1] - table->breakpoints[dim][subs[dim]]);
+    // Set interpolation option, default to linear
+    // Set extrapolation option, default to hold
+    char *interp_method = "linear",
+         *extrap_method = "hold";
 
-	return 0;
+    static char *kwlist[] = {"mesh", "bkpts", "targets", "interp", "extrap", NULL};
+
+    /*
+    Parse the parameters of a function that takes both positional
+    and keyword parameters into local variables. The keywords argument
+    is a NULL-terminated array of keyword parameter names. Empty names
+    denote positional-only parameters. Returns true on success; on failure,
+    it returns false and raises the appropriate exception.
+    */
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OOO|ss", kwlist,
+                                     &mesh, &bkpts, &targets,
+                                     &interp_method, &extrap_method)) {
+        goto out;
+    }
+
+    // Check data array
+    /*data_array = (PyArrayObject *) PyArray_FROM_OTF(data, NPY_FLOAT64, NPY_ARRAY_IN_ARRAY);
+    if (data_array == NULL) {
+        goto out;
+    }*/
+
+
+//    bkpts = (PyArrayObject*)PyObject_GetAttrString(mesh, "data");
+
+
+/*    if (!PyArray_Check(data_array)) {
+        goto out;
+    }*/
+   
+    NDTable_InterpMethod_t interpmethod = get_interp_method(interp_method);
+    NDTable_ExtrapMethod_t extrapmethod = get_extrap_method(extrap_method);
+
+    // Check that data array has the same dim number as coords
+/*    Py_ssize_t bkptsdim = PySequence_Size(bkpts);
+
+    if (bkptsdim != PyArray_NDIM(data_array)) {
+        PyErr_SetString(PyExc_ValueError, "Data and bkpts have different shapes");
+        goto out;
+    }
+*/
+    // Check that the bkpts can be broadcasted in an array
+    // PyObject_HasAttr
+
+
+    // Create NDTable_h
+    NDTable_h example = Mesh2NDTable(mesh);
+
+    //double **params;
+
+    Py_ssize_t ndimsparams = PySequence_Size(targets);
+
+    double *params[NPY_MAXDIMS];
+
+    //    PyArrayObject *result_array;
+
+    for (int j=0; j < example->ndim; j++) {
+        PyArrayObject *axis = (PyArrayObject *) PyList_GetItem(targets, j);
+        params[j] = PyArray_DATA(axis);
+        if (j==0) {
+            params_size = PyArray_SIZE(axis);
+            result_array = (PyArrayObject *) PyArray_NewLikeArray(axis, NPY_CORDER, NULL, 1);
+        }
+    }
+
+    /*    printf("La valeur est %f et %lu, interp %d\n", params[0][2],
+           ndimsparams, (int) params_size);*/
+
+    /*result_array = (PyArrayObject *) PyArray_SearchSorted(PyList_GetItem(bkpts, 0),
+                                                          PyList_GetItem(targets, 0),
+                                                          NPY_SEARCHLEFT, NULL);
+    */
+
+    if (result_array == NULL) {
+        goto out;
+    }
+
+    err = evaluate_interpolation(example, (const double **) &params, params_size,
+                                 interpmethod, extrapmethod,
+                                 (double *) PyArray_DATA(result_array));
+
+    if (err != 0) {
+        PyErr_Format(PyExc_ValueError, "Error %d occured in fancy_algorithm", err);
+        goto out;
+    }
+    Py_XINCREF(result_array);
+
+
+    ret = Py_BuildValue("O", (PyObject *) result_array);
+ out:
+    Py_XDECREF(result_array);
+    return ret;
+}
+
+static PyMethodDef interpolation_methods[] = {
+    {"interpolation", (PyCFunction) interpolation, METH_VARARGS | METH_KEYWORDS,
+         "Interpolation."},
+    {"derivate", (PyCFunction) derivate, METH_VARARGS | METH_KEYWORDS,
+         "Runs an algorithm defined in a local C file."},
+    {NULL, NULL, 0, NULL}   /* sentinel */
+};
+
+static struct PyModuleDef interpolationmodule = {
+    PyModuleDef_HEAD_INIT,
+    "interpolation",
+    NULL,
+    -1,
+    interpolation_methods
+};
+
+PyMODINIT_FUNC
+PyInit_interpolation(void)
+{
+    PyObject *mod = NULL;
+    import_array();
+    mod = PyModule_Create(&interpolationmodule);
+    return mod;
 }
 
 
 
-
+    /*
+    PyObject_Print(self, stdout, 0);
+    fprintf(stdout, "\n");
+    PyObject_Print(args, stdout, 0);
+    fprintf(stdout, "\n");
+    PyObject_Print(kwargs, stdout, 0);
+    fprintf(stdout, "\n");
+    */

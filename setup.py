@@ -10,10 +10,9 @@ from setuptools import setup, find_packages, Extension
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
-ext_modules = [ Extension('lerp.core.interp',
-                          sources = ['lerp/C/src/interp.c',
-                                     'lerp/C/src/core.c',
-                                     'lerp/C/src/interpolation.c'],
+ext_modules = [ Extension('lerp.core.interpolation',
+                          sources = ['lerp/C/src/interpolation.c',
+                                     'lerp/C/src/NDTable.c'],
                           include_dirs = [np.get_include(),
                                           'lerp/C/include'],
                           extra_compile_args=[

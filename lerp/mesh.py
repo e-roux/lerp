@@ -14,9 +14,9 @@ from xarray.core.formatting import (unindexed_dims_repr, dim_summary,
                                     short_dask_repr, short_array_repr, attrs_repr)
 from .core.config import get_option
 
-from .core.interpolation import derivate
+# from .core.interpolation_ctypes import derivate
 
-from .core.interp import interpolation
+from .core.interpolation import interpolation
 
 
 _html_style = {
@@ -154,7 +154,7 @@ class Mesh(DataArray):
     """
     # Code example
 
-    from lerp.mesh import Mesh
+    from lerp import Mesh
 
     np.random.seed(123)
     m3d = Mesh(x=[1, 2, 3, 6], y=[13, 454, 645, 1233, 1535],
@@ -230,6 +230,7 @@ class Mesh(DataArray):
             self.label = None
             self.unit = None
 
+
         # These fully describe a DataArray
         self._variable = variable
         self._coords = coords
@@ -243,35 +244,35 @@ class Mesh(DataArray):
             pass
 
 
-    def __repr__(self):
-        # used for DataArray, Variable and IndexVariable
-        if hasattr(self, 'name') and self.name is not None:
-            name_str = '%r ' % self.name
-        else:
-            name_str = u''
+    # def __repr__(self):
+    #     # used for DataArray, Variable and IndexVariable
+    #     if hasattr(self, 'name') and self.name is not None:
+    #         name_str = '%r ' % self.name
+    #     else:
+    #         name_str = u''
 
-        summary = [f'<lerp.{type(self).__name__} {name_str}({dim_summary(self)})>']
+    #     summary = [f'<lerp.{type(self).__name__} {name_str}({dim_summary(self)})>']
 
 
-        if isinstance(getattr(self, 'variable', self)._data, dask_array_type):
-            summary.append(short_dask_repr(self))
-        elif self._in_memory or self.size < 1e5:
-            summary.append(short_array_repr(self.values))
-        else:
-            summary.append(f'[{self.size} values with dtype={self.dtype}]')
+    #     if isinstance(getattr(self, 'variable', self)._data, dask_array_type):
+    #         summary.append(short_dask_repr(self))
+    #     elif self._in_memory or self.size < 1e5:
+    #         summary.append(short_array_repr(self.values))
+    #     else:
+    #         summary.append(f'[{self.size} values with dtype={self.dtype}]')
 
-        if hasattr(self, 'coords'):
-            if self.coords:
-                summary.append(repr(self.coords))
+    #     if hasattr(self, 'coords'):
+    #         if self.coords:
+    #             summary.append(repr(self.coords))
 
-            unindexed_dims_str = unindexed_dims_repr(self.dims, self.coords)
-            if unindexed_dims_str:
-                summary.append(unindexed_dims_str)
+    #         unindexed_dims_str = unindexed_dims_repr(self.dims, self.coords)
+    #         if unindexed_dims_str:
+    #             summary.append(unindexed_dims_str)
 
-        if self.attrs:
-            summary.append(attrs_repr(self.attrs))
+    #     if self.attrs:
+    #         summary.append(attrs_repr(self.attrs))
 
-        return u'\n'.join(summary)
+    #     return u'\n'.join(summary)
 
     @property
     def options(self):
@@ -309,13 +310,13 @@ class Mesh(DataArray):
     def interpolation(self, *points, interp='linear', extrap='hold'):
         """Interpolation
         """
-        #print(len([self.coords[axe].data for axe in self.coords]))
-        return interpolation(self.data, [self.coords[axe].data for axe in self.coords],
-                             [pt for pt in points],
+#        print(self.coords[axe].data) // for axe in self.coords]))
+        return interpolation(self, list(points),
                              interp=interp, extrap=extrap)
 
     def derivate(self, *points, interp='linear', extrap='hold', **kwargs):
         """derivate
         """
-        return derivate(self, *points, interp=interp, extrap=extrap,
-                        **kwargs)
+        pass
+        # return derivate(self, *points, interp=interp, extrap=extrap,
+        #                **kwargs)

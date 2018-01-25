@@ -3,7 +3,7 @@
 # setup.py that excludes installing the "tests" package
 
 from numpy import (random, array, arange, linspace, interp)
-from lerp.mesh import Mesh
+from lerp import Mesh
 from time import time
 import numpy as np
 import pandas as pd

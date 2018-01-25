@@ -4,7 +4,6 @@
 
 #from numpy import (random, array, arange, linspace, interp)
 import numpy as np
-from lerp.core import interp
 from time import time
 import pandas as pd
 

@@ -30,7 +30,8 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
+#define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
+#include <numpy/arrayobject.h>
 
 #ifndef NDTABLE_H_
 #define NDTABLE_H_
@@ -38,9 +39,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-/*! The maximum number of dimensions */
-#define MAX_NDIMS 32
 
 
 /*! Interpolation methods */
@@ -72,26 +70,16 @@ typedef enum {
 } NDTable_ExtrapMethod_t;
 
 
-/*! The structure that holds the data values */
-typedef struct {
-	int		size;			   //!< the number of data values
-	double *data;			   //!< the data values
-} bkpt_t;
-
-typedef bkpt_t * bkpt_h;
-
 /* Array attributes */
 typedef struct {
-	int 	shape[MAX_NDIMS];   // Array of data array dimensions.
-	int 	strides[MAX_NDIMS]; // bytes to step in each dimension when
-								// traversing an array.
+	int 	shape[NPY_MAXDIMS];   // Array of data array dimensions.
 	int		ndim;			    // Number of array dimensions.
 	double *data;			    // Buffer object pointing to the start
 								// of the array’s data.
 	int		size;			    // Number of elements in the array.
 	int     itemsize;		    // Length of one array element in bytes.
-	double *breakpoints[MAX_NDIMS]; //!< array of pointers to the scale values
-//	interp_fun     interpmethod;		    // Function for interpolation
+	double *coords[NPY_MAXDIMS]; //!< array of pointers to the scale values
+	int     interpmethod;		    // Function for interpolation
 } NDTable_t;
 
 typedef NDTable_t * NDTable_h;
@@ -106,23 +94,35 @@ typedef enum {
 } NDTable_InterpolationStatus;
 
 
-/*! Get the last error message
- *
- * @return		the error message
- */
-const char * NDTable_get_error_message();
+/*! Sets the error message */
+void NDTable_set_error_message(const char *msg, ...);
 
-/*! Evaluate the value of the table at the given sample point using the specified inter- and extrapolation methods
+/*! Converts subscripts to index
  *
- * @param [in]	table			the table handle
- * @param [in]	params			the sample point
- * @param [in]	interp_method	the interpolation method
- * @param [in]	extrap_method	the extrapolation method
- * @param [out]	value			the value at the sample point
- *
- * @return		0 if the value could be evaluated, -1 otherwise
+ *	@param [in]		subs	the subscripts to convert
+ *	@param [in]		table	the table for which to convert the subscripts
+ *	@param [out]	index	the index
  */
-int NDT_eval(NDTable_h table, const double params[], NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value);
+void NDTable_sub2ind(const int *subs, const NDTable_h table, int *index);
+
+
+double NDTable_get_value_subs(const NDTable_h table, const int subs[]);
+
+
+
+/*! Helper function to the indices for the interpolation
+ *
+ *  @param [in]		value		the value to search for
+ *  @param [in]		num_values	the number of values
+ *  @param [in]		values		the values
+ *	@param [out]	index		the smallest index in [0;num_values-2] for which values[index] <= value
+ *	@param [out]	t			the weight for the linear interpolation s.t. value == (1-t)*values[index] + t*values[index+1]
+ *
+ */
+void NDTable_find_index(double value, int num_values, const double values[], int *index, double *t);
+
+int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double *derivatives);
+
 
 /*! Evalute the total differential of the table at the given sample point and deltas using the specified inter- and extrapolation methods
  *
@@ -144,72 +144,6 @@ int NDT_eval_derivative(NDTable_h table, int nparams, const double params[],
 /*! The maximum length of an error message */
 #define MAX_MESSAGE_LENGTH 256
 
-/*! Sets the error message */
-void NDTable_set_error_message(const char *msg, ...);
-
-/*! Allocates a new table
- *
- *	@return a pointer to the new table
- */
-NDTable_h NDTable_alloc_table();
-
-/*! De-allocates a table
- *
- *	@param [in]	table   pointer to the table to de-allocate
- */
-void NDTable_free_table(NDTable_h table);
-
-/*! Converts index to subscripts
- *
- * @param [in]	index	the index to convert
- * @param [in]	table	the table for which to convert the index
- * @param [out]	subs	the subscripts
- */
-void NDTable_ind2sub(const int index, const NDTable_h table, int *subs);
-
-/*! Converts subscripts to index
- *
- *	@param [in]		subs	the subscripts to convert
- *	@param [in]		table	the table for which to convert the subscripts
- *	@param [out]	index	the index
- */
-void NDTable_sub2ind(const int *subs, const NDTable_h table, int *index);
-
-double NDTable_get_value_subs(const NDTable_h table, const int subs[]);
-
-/*! Helper function to the indices for the interpolation
- *
- *  @param [in]		value		the value to search for
- *  @param [in]		num_values	the number of values
- *  @param [in]		values		the values
- *	@param [out]	index		the smallest index in [0;num_values-2] for which values[index] <= value
- *	@param [out]	t			the weight for the linear interpolation s.t. value == (1-t)*values[index] + t*values[index+1]
- *
- */
-void NDTable_find_index(double value, int num_values, const double values[], int *index, double *t);
-
-int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double *derivatives);
-
-
-/*! Calculate the number of offsets from the dimensions
- *
- *  @param [in]		ndim		the number of dimensions
- *  @param [in]		shape		the extent of the dimensions
- *	@param [out]	strides		array to write the offsets
- */
-void NDTable_calculate_offsets(int ndim, const int shape[], int strides[]);
-
-/*! Calculate the number of elements from the dimensions
- *
- *  @param [in]		ndim		the number of dimensions
- *  @param [in]		shape		the extent of the dimensions
- *
- *	@return	the number of elements
- */
-int NDTable_calculate_size(int ndim, const int shape[]);
-
-
-
 typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, 
 						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
 						 double *value, double derivatives[]);
@@ -223,7 +157,6 @@ static int interp_fritsch_butland (const NDTable_h table, const double *t, const
 static int interp_steffen         (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
 static int extrap_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
 static int extrap_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-
 
 
 #ifdef __cplusplus

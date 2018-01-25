@@ -3,7 +3,7 @@
 # setup.py that excludes installing the "tests" package
 
 from numpy import (random, array, arange, linspace, interp)
-from lerp.mesh import Mesh
+from lerp import Mesh
 from time import time
 import numpy as np
 import pandas as pd
@@ -41,3 +41,20 @@ print("*"*80)
 print("Tiny bench")
 print("*"*80)
 print(tiny_bench())
+
+
+
+def random_sort(arr):
+    for i in range(arr.ndim):
+        arr = np.sort(arr, axis=i)
+    return arr
+
+np.random.seed(123)
+m4d = Mesh(x=[1, 2, 3, 6], y=[13, 454, 645, 1233, 1535], z=np.sort(np.random.uniform(0, 200, size=(20,))),
+           data=random_sort(np.random.exponential(size=(4, 5, 20))*1000),
+           label="le label")
+#print(m4d.x.dtype)
+#print(m4d([6, 3, 3], [2, 2, 4], [3, 9, 3]))
+print(m4d(1,  13, 3))
+
+#print(m4d[1])
