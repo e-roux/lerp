@@ -10,15 +10,16 @@ from setuptools import setup, find_packages, Extension
 def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
+ 
+extra_compile_args = ['-Wall', '-Wno-unused-function', '-Wno-unused-variable'] \
+    if os.name == 'posix' else ['-Wall']
+
 ext_modules = [ Extension('lerp.core.interpolation',
                           sources = ['lerp/C/src/interpolation.c',
                                      'lerp/C/src/NDTable.c'],
                           include_dirs = [np.get_include(),
                                           'lerp/C/include'],
-                          extra_compile_args=[
-                                    '-Wall',
-                                    '-Wno-unused-function',
-                                    '-Wno-unused-variable'])]
+                          extra_compile_args=extra_compile_args)]
 
 setup(
     author=" Emmanuel Roux",
@@ -30,7 +31,8 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3.6",
         ],
-    description="Lookup table facility in python on top of numpy", download_url="https://github.com/gwin-zegal/lerp/releases/\
+    description="Lookup table facility in python on top of numpy",
+    download_url="https://github.com/gwin-zegal/lerp/releases/\
         tag/untagged-01068bebf35469123485",
     ext_modules = ext_modules,
     install_requires=['numpy', 'scipy', 'matplotlib', 'pandas'],

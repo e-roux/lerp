@@ -35,7 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 #include <float.h>
-#include <x86intrin.h>
+// #include <x86intrin.h>
 
 // emmintrin.h
 
@@ -123,7 +123,7 @@ void NDTable_find_index(double value, int nvalues, const double *values,
 	double min = values[0];
 	double max = values[nvalues - 1];
 	double range = max - min;
-	__m128d x;
+	// __m128d x;
 
 	if(nvalues < 2) {
 		*weigth = 0.0;
