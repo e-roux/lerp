@@ -58,11 +58,13 @@ def tiny_bench():
     return all_runs
 
 
-
 x = np.linspace(0, 2 * np.pi, 10)
 y = np.sin(x)
 xi = np.linspace(-1.5,  2 * np.pi + 1.5, 1000)
 m2d = Mesh(x,y)
+
+print(m2d.x)
+
 
 print(m2d.derivate(xi))
 
