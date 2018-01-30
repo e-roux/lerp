@@ -35,6 +35,6 @@ class PyDataSet(object):
 
 pressure = PyDataSet.get('pressure')
 pressure.plot('temperature', 'pressure')
-pm = Mesh(*pressure.values.T, label="Pression")
+pm = Mesh(*pressure.values.T)
 
 # print(pm)

@@ -18,7 +18,8 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #include <NDTable.h>
 
 
-#define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
+// #define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
+#define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
 
 
 NDTable_h Mesh2NDTable(PyObject *mesh);

@@ -13,7 +13,7 @@ def tiny_bench():
     x = np.linspace(0, 2 * np.pi, 10)
     y = np.sin(x)
 
-    m2d = Mesh(x,y)
+    m2d = Mesh(coords=[('x', x)],data=y)
     x = m2d.x.data
     y = m2d.data
 
@@ -50,9 +50,10 @@ def random_sort(arr):
     return arr
 
 np.random.seed(123)
-m4d = Mesh(x=[1, 2, 3, 6], y=[13, 454, 645, 1233, 1535], z=np.sort(np.random.uniform(0, 200, size=(20,))),
-           data=random_sort(np.random.exponential(size=(4, 5, 20))*1000),
-           label="le label")
+m4d = Mesh(coords=[('x', [1, 2, 3, 6]),
+                   ('y', [13, 454, 645, 1233, 1535]),
+                   ('z', np.sort(np.random.uniform(0, 200, size=(20,))))],
+           data=random_sort(np.random.exponential(size=(4, 5, 20))*1000))
 #print(m4d.x.dtype)
 #print(m4d([6, 3, 3], [2, 2, 4], [3, 9, 3]))
 print(m4d(1,  13, 3))

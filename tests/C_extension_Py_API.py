@@ -34,7 +34,7 @@ def tiny_bench():
     for N in _range:
         _xi = np.random.randint(1, 10000, N).astype(np.float64) + np.random.random(N)
 
-        myMesh = Mesh(x, y)
+        myMesh = Mesh(coords=[('x',x)], data=y)
         res = np.empty_like(_xi)
         _xi.sort()
         t1 = time()

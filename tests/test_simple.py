@@ -15,9 +15,9 @@ def test_success():
 
 def test():
     np.random.seed(123)
-    m3d = Mesh(x=[1, 2, 3, 6], y=[13, 454, 645, 1233, 1535],
-               data=np.random.randn(4, 5),
-               label="le label")
+    m3d = Mesh(coords=[('x', [1, 2, 3, 6]),
+                       ('y',[13, 454, 645, 1233, 1535])],
+               data=np.random.randn(4, 5))
 
     print(f"m3d : {m3d}")
 
@@ -33,7 +33,7 @@ def tiny_bench():
     x = np.linspace(0, 2 * np.pi, 10)
     y = np.sin(x)
 
-    m2d = Mesh(x,y)
+    m2d = Mesh(coords=[('x', x)],data=y)
     x = m2d.x.data
     y = m2d.data
 
@@ -61,12 +61,12 @@ def tiny_bench():
 x = np.linspace(0, 2 * np.pi, 10)
 y = np.sin(x)
 xi = np.linspace(-1.5,  2 * np.pi + 1.5, 1000)
-m2d = Mesh(x,y)
+m2d = Mesh(coords=[('x', x)],data=y)
 
 print(m2d.x)
 
 
-print(m2d.derivate(xi))
+#print(m2d.derivate(xi))
 
 print("*"*80)
 print("test")

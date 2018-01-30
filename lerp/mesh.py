@@ -51,13 +51,13 @@ class Mesh(DataArray):
         plt.graphpaper(200, 1)
 
     """
-    AXES = 'xyzvw'
+    # AXES = 'xyzvw'
     def __init__(self, *pargs, **kwargs):
 
-        from xarray.core.variable import (Variable, as_compatible_data)
-        from xarray.core.dataarray import _infer_coords_and_dims
+        # from xarray.core.variable import (Variable, as_compatible_data)
+        # from xarray.core.dataarray import _infer_coords_and_dims
 
-        coords, variable, name = (None, None, None)
+        # coords, variable, name = (None, None, None)
 
         self._options = {
             "extrapolate": True,
@@ -65,42 +65,42 @@ class Mesh(DataArray):
             "deepcopy": False
         }
 
-        if 'coords' in kwargs:
-            assert not bool(set(kwargs) & set(kwargs['coords'])), \
-                "Redundant arguments in coords and kwargs"
+        # if 'coords' in kwargs:
+        #     assert not bool(set(kwargs) & set(kwargs['coords'])), \
+        #         "Redundant arguments in coords and kwargs"
 
-        for info in ["label", "unit"]:
-            setattr(self, info, kwargs.pop(info) if info in kwargs else None)
+        # for info in ["label", "unit"]:
+        #     setattr(self, info, kwargs.pop(info) if info in kwargs else None)
 
         # print(kwargs["attrs"] if "attrs" in kwargs else None) # = {"x" :"aze"}
 
         # Intern to DataArray
         # See
         # https://github.com/pydata/xarray/blob/master/xarray/core/dataarray.py
-        if 'fastpath' not in kwargs:
-            if 'coords' not in kwargs:
-                coords = {}
+        # if 'fastpath' not in kwargs:
+        #     if 'coords' not in kwargs:
+        #         coords = {}
 
-            if 'data' not in kwargs:
-                *pargs, data = pargs
-            else:
-                data = kwargs.pop('data')                
-            
-            for _k, _v in zip(self.AXES, pargs):
-                coords[_k] = _v
-                pargs = []
+        #     if 'data' not in kwargs:
+        #         *pargs, data = pargs
+        #     else:
+        #         data = kwargs.pop('data')
 
-            dims = set(self.AXES) & set(kwargs)
+        #     for _k, _v in zip(self.AXES, pargs):
+        #         coords[_k] = _v
+        #         pargs = []
 
-            if dims:
-                for d in sorted(dims, key=lambda x : self.AXES.index(x)):
-                    coords[d] = kwargs.pop(d)
+        #     dims = set(self.AXES) & set(kwargs)
 
-            dims = tuple(coords.keys())
-              
-            kwargs['coords'] = coords
-            kwargs['data'] = data
-            kwargs['dims'] = dims
+        #     if dims:
+        #         for d in sorted(dims, key=lambda x : self.AXES.index(x)):
+        #             coords[d] = kwargs.pop(d)
+
+        #     dims = tuple(coords.keys())
+
+        #     kwargs['coords'] = coords
+        #     kwargs['data'] = data
+        #     kwargs['dims'] = dims
 
         super(Mesh, self).__init__(*pargs, **kwargs)
 
