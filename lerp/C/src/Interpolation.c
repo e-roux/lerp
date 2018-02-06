@@ -72,20 +72,22 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
 
        PyObject *axis = PyObject_GetAttrString(mesh, (char *)PyUnicode_AS_DATA(key));
 
-       Py_DECREF(key);
+      // Py_DECREF(key);       
 
         PyArrayObject *coords_tmp =  ARRAYD64(axis);
         output->coords[j] = PyArray_DATA(coords_tmp);
 
-        Py_DECREF(axis);
+        Py_DECREF(axis);        
+
     }
     output->data = PyArray_DATA(array);
     output->size = PyArray_SIZE(array);
     output->itemsize = PyArray_ITEMSIZE(array);
 //    output->interpmethod = *interp_linear;
 
-    Py_DECREF(coords_list);
-    Py_DECREF(coords);
+
+    Py_DECREF(coords_list);    
+    Py_DECREF(coords);    
     Py_DECREF(array);
 
     return output;
@@ -140,7 +142,6 @@ NDTable_ExtrapMethod_t get_extrap_method(char *method) {
 
     return extrapmethod;
 }
-
 
 
 int evaluate_interpolation( NDTable_h mesh, const double **params, int params_size,
@@ -223,7 +224,9 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
             params_size = PyArray_SIZE(axis);
             result_array = (PyArrayObject *) PyArray_NewLikeArray(axis, NPY_CORDER, NULL, 1);
         }
+        //Py_DECREF(axis);
     }
+
 
     if (result_array == NULL) {
         goto out;
@@ -237,12 +240,10 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
         PyErr_Format(PyExc_ValueError, "Error %d occured in fancy_algorithm", err);
         goto out;
     }
-    Py_XINCREF(result_array);
-
 
 	ret = Py_BuildValue("O", (PyObject *) result_array);
  out:
-    Py_XDECREF(result_array);
+//    Py_DECREF(result_array);
     return ret;
 }
 
@@ -337,10 +338,10 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
     }*/
 
 
-//    bkpts = (PyArrayObject*)PyObject_GetAttrString(mesh, "data");
+    //    bkpts = (PyArrayObject*)PyObject_GetAttrString(mesh, "data");
 
 
-/*    if (!PyArray_Check(data_array)) {
+    /*    if (!PyArray_Check(data_array)) {
         goto out;
     }*/
    
@@ -348,13 +349,13 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
     NDTable_ExtrapMethod_t extrapmethod = get_extrap_method(extrap_method);
 
     // Check that data array has the same dim number as coords
-/*    Py_ssize_t bkptsdim = PySequence_Size(bkpts);
+    /*    Py_ssize_t bkptsdim = PySequence_Size(bkpts);
 
-    if (bkptsdim != PyArray_NDIM(data_array)) {
-        PyErr_SetString(PyExc_ValueError, "Data and bkpts have different shapes");
-        goto out;
-    }
-*/
+        if (bkptsdim != PyArray_NDIM(data_array)) {
+            PyErr_SetString(PyExc_ValueError, "Data and bkpts have different shapes");
+            goto out;
+        }
+    */
     // Check that the bkpts can be broadcasted in an array
     // PyObject_HasAttr
 
