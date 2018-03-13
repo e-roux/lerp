@@ -35,9 +35,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string.h>
 #include <stdio.h>
 #include <float.h>
-// #include <x86intrin.h>
-
-// emmintrin.h
 
 #include "NDTable.h"
 
