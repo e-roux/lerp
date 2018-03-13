@@ -35,7 +35,7 @@ setup(
     download_url="https://github.com/gwin-zegal/lerp/releases/\
         tag/untagged-01068bebf35469123485",
     ext_modules = ext_modules,
-    install_requires=['numpy', 'scipy', 'matplotlib', 'pandas'],
+    install_requires=['numpy', 'scipy', 'matplotlib', 'pandas', 'xarray'],
     keywords="interpolation, lookup table",
     license="MIT",
     long_description=read("README.rst"),

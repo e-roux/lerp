@@ -77,8 +77,7 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
         PyArrayObject *coords_tmp =  ARRAYD64(axis);
         output->coords[j] = PyArray_DATA(coords_tmp);
 
-        Py_DECREF(axis);        
-
+        Py_DECREF(axis);
     }
     output->data = PyArray_DATA(array);
     output->size = PyArray_SIZE(array);

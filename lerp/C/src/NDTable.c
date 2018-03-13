@@ -88,15 +88,6 @@ Prototype of an interpolation function
 */
 
 
-static char error_message[MAX_MESSAGE_LENGTH] = "";
-
-void NDTable_set_error_message(const char *msg, ...) {
-	va_list vargs;
-	va_start(vargs, msg);
-	vsprintf(error_message, msg, vargs);
-	va_end(vargs);
-}
-
 void NDTable_sub2ind(const int *subs, const NDTable_h table, int *index) {
 	int i, k = 1;
 
@@ -223,7 +214,7 @@ int NDT_eval_internal(const NDTable_h table, const double *weigths, const int *s
 			}
 			break;
 		default:
-			NDTable_set_error_message("Requested value is outside data range");
+			sprintf("", "Requested value is outside data range");
 			return -1;
 		}
 	} else {

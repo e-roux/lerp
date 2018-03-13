@@ -141,9 +141,6 @@ int NDT_eval_derivative(NDTable_h table, int nparams, const double params[],
 						NDTable_InterpMethod_t interp_method,
 						NDTable_ExtrapMethod_t extrap_method, double *value);
 
-/*! The maximum length of an error message */
-#define MAX_MESSAGE_LENGTH 256
-
 typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, 
 						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
 						 double *value, double derivatives[]);

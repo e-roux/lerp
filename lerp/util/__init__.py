@@ -6,7 +6,7 @@ from os import mkdir, system
 import os.path
 import numpy as np
 import pandas as pd
-from lerp.mesh import Mesh # mesh2d, mesh3d
+from lerp.mesh import Mesh
 from lerp.util.FigureData import go as digitizer
 
 from openpyxl import load_workbook
