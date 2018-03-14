@@ -14,24 +14,267 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #include <Python.h>
 #include <stdio.h>
 #include <structmember.h>
-#include <numpy/arrayobject.h>
-#include <NDTable.h>
+#include <interpolation.h>
+
+#define error_converting(x)  (((x) == -1) && PyErr_Occurred())
 
 
-// #define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
-#define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
+
+/** @brief find index of a sorted array such that arr[i] <= key < arr[i + 1].
+ *
+ * If an starting index guess is in-range, the array values around this
+ * index are first checked.  This allows for repeated calls for well-ordered
+ * keys (a very common case) to use the previous index as a very good guess.
+ *
+ * If the guess value is not useful, bisection of the array is used to
+ * find the index.  If there is no such index, the return values are:
+ *     key < arr[0] -- -1
+ *     key == arr[len - 1] -- len - 1
+ *     key > arr[len - 1] -- len
+ * The array is assumed contiguous and sorted in ascending order.
+ *
+ * @param key key value.
+ * @param arr contiguous sorted array to be searched.
+ * @param len length of the array.
+ * @param guess initial guess of index
+ * @return index
+ */
+#define LIKELY_IN_CACHE_SIZE 8
+
+static npy_intp
+binary_search_with_guess(const npy_double key, const npy_double *arr,
+                         npy_intp len, npy_intp guess)
+{
+    npy_intp imin = 0;
+    npy_intp imax = len;
+
+    /* Handle keys outside of the arr range first */
+    if (key > arr[len - 1]) {
+        return len;
+    }
+    else if (key < arr[0]) {
+        return -1;
+    }
+
+    /*
+     * If len <= 4 use linear search.
+     * From above we know key >= arr[0] when we start.
+     */
+    if (len <= 4) {
+        npy_intp i;
+
+        for (i = 1; i < len && key >= arr[i]; ++i);
+        return i - 1;
+    }
+
+    if (guess > len - 3) {
+        guess = len - 3;
+    }
+    if (guess < 1)  {
+        guess = 1;
+    }
+
+    /* check most likely values: guess - 1, guess, guess + 1 */
+    if (key < arr[guess]) {
+        if (key < arr[guess - 1]) {
+            imax = guess - 1;
+            /* last attempt to restrict search to items in cache */
+            if (guess > LIKELY_IN_CACHE_SIZE &&
+                        key >= arr[guess - LIKELY_IN_CACHE_SIZE]) {
+                imin = guess - LIKELY_IN_CACHE_SIZE;
+            }
+        }
+        else {
+            /* key >= arr[guess - 1] */
+            return guess - 1;
+        }
+    }
+    else {
+        /* key >= arr[guess] */
+        if (key < arr[guess + 1]) {
+            return guess;
+        }
+        else {
+            /* key >= arr[guess + 1] */
+            if (key < arr[guess + 2]) {
+                return guess + 1;
+            }
+            else {
+                /* key >= arr[guess + 2] */
+                imin = guess + 2;
+                /* last attempt to restrict search to items in cache */
+                if (guess < len - LIKELY_IN_CACHE_SIZE - 1 &&
+                            key < arr[guess + LIKELY_IN_CACHE_SIZE]) {
+                    imax = guess + LIKELY_IN_CACHE_SIZE;
+                }
+            }
+        }
+    }
+
+    /* finally, find index by bisection */
+    while (imin < imax) {
+        const npy_intp imid = imin + ((imax - imin) >> 1);
+        if (key >= arr[imid]) {
+            imin = imid + 1;
+        }
+        else {
+            imax = imid;
+        }
+    }
+    return imin - 1;
+}
+
+#undef LIKELY_IN_CACHE_SIZE
 
 
-NDTable_h Mesh2NDTable(PyObject *mesh);
+NPY_NO_EXPORT PyObject *
+my_interp(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
+{
 
+    PyObject *fp, *xp, *x;
+    PyObject *left = NULL, *right = NULL;
+    PyArrayObject *afp = NULL, *axp = NULL, *ax = NULL, *af = NULL;
+    npy_intp i, lenx, lenxp;
+    npy_double lval, rval;
+    const npy_double *dy, *dx, *dz;
+    npy_double *dres, *slopes = NULL;
 
-int evaluate_interpolation(NDTable_h mesh, const double **params, int params_size,
-                           NDTable_InterpMethod_t interp_method,
-                           NDTable_ExtrapMethod_t extrap_method,
-                           double *result);
+    static char *kwlist[] = {"x", "xp", "fp", "left", "right", NULL};
 
-static PyObject *interpolation(PyObject *self, PyObject *args, PyObject *kwargs);
+    NPY_BEGIN_THREADS_DEF;
 
+    if (!PyArg_ParseTupleAndKeywords(args, kwdict, "OOO|OO:interp", kwlist,
+                                     &x, &xp, &fp, &left, &right)) {
+        return NULL;
+    }
+
+    afp = (PyArrayObject *)PyArray_ContiguousFromAny(fp, NPY_DOUBLE, 1, 1);
+    if (afp == NULL) {
+        return NULL;
+    }
+    axp = (PyArrayObject *)PyArray_ContiguousFromAny(xp, NPY_DOUBLE, 1, 1);
+    if (axp == NULL) {
+        goto fail;
+    }
+    ax = (PyArrayObject *)PyArray_ContiguousFromAny(x, NPY_DOUBLE, 0, 0);
+    if (ax == NULL) {
+        goto fail;
+    }
+    lenxp = PyArray_SIZE(axp);
+    if (lenxp == 0) {
+        PyErr_SetString(PyExc_ValueError,
+                "array of sample points is empty");
+        goto fail;
+    }
+    if (PyArray_SIZE(afp) != lenxp) {
+        PyErr_SetString(PyExc_ValueError,
+                "fp and xp are not of the same length.");
+        goto fail;
+    }
+
+    af = (PyArrayObject *)PyArray_SimpleNew(PyArray_NDIM(ax),
+                                            PyArray_DIMS(ax), NPY_DOUBLE);
+    if (af == NULL) {
+        goto fail;
+    }
+    lenx = PyArray_SIZE(ax);
+
+    dy = (const npy_double *)PyArray_DATA(afp);
+    dx = (const npy_double *)PyArray_DATA(axp);
+    dz = (const npy_double *)PyArray_DATA(ax);
+    dres = (npy_double *)PyArray_DATA(af);
+    /* Get left and right fill values. */
+    if ((left == NULL) || (left == Py_None)) {
+        lval = dy[0];
+    }
+    else {
+        lval = PyFloat_AsDouble(left);
+        if (error_converting(lval)) {
+            goto fail;
+        }
+    }
+    if ((right == NULL) || (right == Py_None)) {
+        rval = dy[lenxp - 1];
+    }
+    else {
+        rval = PyFloat_AsDouble(right);
+        if (error_converting(rval)) {
+            goto fail;
+        }
+    }
+
+    /* binary_search_with_guess needs at least a 3 item long array */
+    if (lenxp == 1) {
+        const npy_double xp_val = dx[0];
+        const npy_double fp_val = dy[0];
+
+        NPY_BEGIN_THREADS_THRESHOLDED(lenx);
+        for (i = 0; i < lenx; ++i) {
+            const npy_double x_val = dz[i];
+            dres[i] = (x_val < xp_val) ? lval :
+                                         ((x_val > xp_val) ? rval : fp_val);
+        }
+        NPY_END_THREADS;
+    }
+    else {
+        npy_intp j = 0;
+
+        /* only pre-calculate slopes if there are relatively few of them. */
+        if (lenxp <= lenx) {
+            slopes = PyArray_malloc((lenxp - 1) * sizeof(npy_double));
+            if (slopes == NULL) {
+                goto fail;
+            }
+        }
+
+        NPY_BEGIN_THREADS;
+
+        if (slopes != NULL) {
+            for (i = 0; i < lenxp - 1; ++i) {
+                slopes[i] = (dy[i+1] - dy[i]) / (dx[i+1] - dx[i]);
+            }
+        }
+
+        for (i = 0; i < lenx; ++i) {
+            const npy_double x_val = dz[i];
+
+            if (npy_isnan(x_val)) {
+                dres[i] = x_val;
+                continue;
+            }
+
+            j = binary_search_with_guess(x_val, dx, lenxp, j);  
+            if (j == -1) {
+                dres[i] = lval;
+            }
+            else if (j == lenxp) {
+                dres[i] = rval;
+            }
+            else if (j == lenxp - 1) {
+                dres[i] = dy[j];
+            }
+            else {
+                const npy_double slope = (slopes != NULL) ? slopes[j] :
+                                         (dy[j+1] - dy[j]) / (dx[j+1] - dx[j]);
+                dres[i] = slope*(x_val - dx[j]) + dy[j];
+            }
+        }
+        NPY_END_THREADS;
+    }
+
+    PyArray_free(slopes);
+    Py_DECREF(afp);
+    Py_DECREF(axp);
+    Py_DECREF(ax);
+    return PyArray_Return(af);
+
+fail:
+    Py_XDECREF(afp);
+    Py_XDECREF(axp);
+    Py_XDECREF(ax);
+    Py_XDECREF(af);
+    return NULL;
+}
 
 
 NDTable_h Mesh2NDTable(PyObject *mesh){
@@ -41,7 +284,7 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
     /*    if (!PyArray_Check(data_array))
             goto out;
     */
-    // Cast data to double
+    // Cast data to npy_double
     PyArrayObject *array = ARRAYD64(PyObject_GetAttrString(mesh, "data"));
    
     // coords
@@ -72,7 +315,7 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
 
        PyObject *axis = PyObject_GetAttrString(mesh, (char *)PyUnicode_AS_DATA(key));
 
-      // Py_DECREF(key);       
+      // Py_DECREF(key);
 
         PyArrayObject *coords_tmp =  ARRAYD64(axis);
         output->coords[j] = PyArray_DATA(coords_tmp);
@@ -82,7 +325,7 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
     output->data = PyArray_DATA(array);
     output->size = PyArray_SIZE(array);
     output->itemsize = PyArray_ITEMSIZE(array);
-//    output->interpmethod = *interp_linear;
+    // output->interpmethod = *interp_linear;
 
 
     Py_DECREF(coords_list);    
@@ -90,7 +333,6 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
     Py_DECREF(array);
 
     return output;
-
 }
 
 
@@ -143,16 +385,19 @@ NDTable_ExtrapMethod_t get_extrap_method(char *method) {
 }
 
 
-int evaluate_interpolation( NDTable_h mesh, const double **params, int params_size,
-            NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method,
-            double *result)
+npy_intp evaluate_interpolation(NDTable_h mesh, const npy_double **params,
+                                npy_intp params_size,
+                                NDTable_InterpMethod_t interp_method,
+                                NDTable_ExtrapMethod_t extrap_method,
+                                npy_double *result)
 {
 
-    int      index[NPY_MAXDIMS]; // the subscripts
-    int      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
-    double   derivatives[NPY_MAXDIMS];
-    double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
+    npy_intp      index[NPY_MAXDIMS]; // the subscripts
+    npy_intp      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
+    npy_double   derivatives[NPY_MAXDIMS];
+    npy_double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
 
+    npy_intp i, j, _cache;
     // if the dataset is scalar return the value
     if (mesh->ndim == 0) {
         *result = mesh->data[0];
@@ -160,31 +405,45 @@ int evaluate_interpolation( NDTable_h mesh, const double **params, int params_si
     }
 
     // TODO: add null check
+   NPY_BEGIN_THREADS_DEF;
+
+   NPY_BEGIN_THREADS_THRESHOLDED(params_size);
 
     // Iteration over each points
-    for(int i = 0; i < params_size; i++) {
+    for(i = 0; i < params_size; i++) {
         // set array of parameter in each direction
-        for(int j = 0; j < mesh->ndim; j++) {
+        for(j = 0; j < mesh->ndim; j++) {
             // Find index and weights
-            NDTable_find_index(params[j][i], mesh->shape[j], mesh->coords[j],
-                               &index[j], &weigths[j]);
+            // NDTable_find_index(params[j][i], mesh->shape[j], mesh->coords[j],
+            //                    &index[j], &weigths[j]);
+
+            // index[j] = binary_search_with_guess(params[j][i], mesh->coords[j],
+            //                                     mesh->shape[j], index[j]);
+
+            _cache = binary_search_with_guess(params[j][i], mesh->coords[j],
+                                              mesh->shape[j], _cache);
+            index[j] = _cache;
+
+            weigths[j] = (params[j][_cache] - mesh->coords[j][_cache]) /
+                         (mesh->coords[j][_cache+1] - mesh->coords[j][_cache]);
         }
-        int status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
+        npy_intp status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
                                         extrap_method, &result[i], derivatives);
 
         if(status != NDTABLE_INTERPSTATUS_OK) {
             return -1;
         }
     }
+    
+    NPY_END_THREADS;
 
     return 0;
-
 }
 
 static PyObject *
 interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    int err;
+    npy_intp err;
     PyObject *ret = NULL;
 
     PyArrayObject *result_array = NULL;
@@ -201,6 +460,8 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
 
     static char *kwlist[] = {"mesh", "targets", "interp", "extrap", NULL};
 
+
+
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO|ss", kwlist, &mesh, &targets,
                                      &interp_method, &extrap_method))
 		goto out;
@@ -213,9 +474,9 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
 
     Py_ssize_t ndimsparams = PySequence_Size(targets);
 
-    double *params[NPY_MAXDIMS];
+    npy_double *params[NPY_MAXDIMS];
 
-    for (int j=0; j < example->ndim; j++) {
+    for (npy_intp j=0; j < example->ndim; j++) {
         PyArrayObject *axis = ARRAYD64(PyList_GetItem(targets, j));
         params[j] = PyArray_DATA(axis);
 
@@ -231,9 +492,9 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
         goto out;
     }
 
-    err = evaluate_interpolation(example, (const double **) &params, params_size,
+    err = evaluate_interpolation(example, (const npy_double **) &params, params_size,
                                  interpmethod, extrapmethod,
-                                 (double *) PyArray_DATA(result_array));
+                                 (npy_double *) PyArray_DATA(result_array));
 
     if (err != 0) {
         PyErr_Format(PyExc_ValueError, "Error %d occured in fancy_algorithm", err);
@@ -242,22 +503,22 @@ interpolation(PyObject *self, PyObject *args, PyObject *kwargs)
 
 	ret = Py_BuildValue("O", (PyObject *) result_array);
  out:
-//    Py_DECREF(result_array);
+    // Py_DECREF(result_array);
     return ret;
 }
 
-int evaluate_derivate(
+npy_intp evaluate_derivate(
             NDTable_h mesh,
-            const double **params,
-            int params_size,
+            const npy_double **params,
+            npy_intp params_size,
             NDTable_InterpMethod_t interp_method,
             NDTable_ExtrapMethod_t extrap_method,
-            double *result) 
+            npy_double *result) 
 {
-    int      index[NPY_MAXDIMS]; // the subscripts
-    int      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
-    double   derivatives[NPY_MAXDIMS];
-    double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
+    npy_intp      index[NPY_MAXDIMS]; // the subscripts
+    npy_intp      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
+    npy_double   derivatives[NPY_MAXDIMS];
+    npy_double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
 
     // if the dataset is scalar return the value
     if (mesh->ndim == 0) {
@@ -266,14 +527,14 @@ int evaluate_derivate(
     }
 
     // Iteration over each points
-    for(int i = 0; i < params_size; i++) {
+    for(npy_intp i = 0; i < params_size; i++) {
         // set array of parameter in each direction
-        for(int j = 0; j < mesh->ndim; j++) {
+        for(npy_intp j = 0; j < mesh->ndim; j++) {
             // Find index and weights
             NDTable_find_index(params[j][i], mesh->shape[j], mesh->coords[j],
                                &index[j], &weigths[j]);
         }
-        int status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
+        npy_intp status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
                                         extrap_method, &result[i], derivatives);
 
         if(status != NDTABLE_INTERPSTATUS_OK) {
@@ -282,7 +543,7 @@ int evaluate_derivate(
 
     /*        *result[i] = 0.0;
 
-            for (int k = 0; k < mesh->ndim; k++) {
+            for (npy_intp k = 0; k < mesh->ndim; k++) {
                 *result[i] += params[j][i] * derivatives[i];
             }
     */
@@ -290,13 +551,12 @@ int evaluate_derivate(
     }
 
     return 0;
-
 }
 
 static PyObject *
 derivate(PyObject *self, PyObject *args, PyObject *kwargs)
 {
-    int err;
+    npy_intp err;
     PyObject *ret = NULL;
 
     PyArrayObject *result_array = NULL;
@@ -306,7 +566,7 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
     PyObject *bkpts = NULL;
     PyObject *targets = NULL;
 
-    int bkptsMaxLength = 1;
+    npy_intp bkptsMaxLength = 1;
 
     npy_intp params_size;
 
@@ -362,15 +622,15 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
     // Create NDTable_h
     NDTable_h example = Mesh2NDTable(mesh);
 
-    //double **params;
+    //npy_double **params;
 
     Py_ssize_t ndimsparams = PySequence_Size(targets);
 
-    double *params[NPY_MAXDIMS];
+    npy_double *params[NPY_MAXDIMS];
 
     //    PyArrayObject *result_array;
 
-    for (int j=0; j < example->ndim; j++) {
+    for (npy_intp j=0; j < example->ndim; j++) {
         PyArrayObject *axis = (PyArrayObject *) PyList_GetItem(targets, j);
         params[j] = PyArray_DATA(axis);
         if (j==0) {
@@ -380,7 +640,7 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
     }
 
     /*    printf("La valeur est %f et %lu, interp %d\n", params[0][2],
-           ndimsparams, (int) params_size);*/
+           ndimsparams, (npy_intp) params_size);*/
 
     /*result_array = (PyArrayObject *) PyArray_SearchSorted(PyList_GetItem(bkpts, 0),
                                                           PyList_GetItem(targets, 0),
@@ -391,9 +651,9 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
         goto out;
     }
 
-    err = evaluate_interpolation(example, (const double **) &params, params_size,
+    err = evaluate_interpolation(example, (const npy_double **) &params, params_size,
                                  interpmethod, extrapmethod,
-                                 (double *) PyArray_DATA(result_array));
+                                 (npy_double *) PyArray_DATA(result_array));
 
     if (err != 0) {
         PyErr_Format(PyExc_ValueError, "Error %d occured in fancy_algorithm", err);
@@ -411,6 +671,8 @@ derivate(PyObject *self, PyObject *args, PyObject *kwargs)
 static PyMethodDef interpolation_methods[] = {
     {"interpolation", (PyCFunction) interpolation, METH_VARARGS | METH_KEYWORDS,
          "Interpolation."},
+    {"my_interp", (PyCFunction) my_interp, METH_VARARGS | METH_KEYWORDS,
+         "my_interp."},         
     {"derivate", (PyCFunction) derivate, METH_VARARGS | METH_KEYWORDS,
          "Runs an algorithm defined in a local C file."},
     {NULL, NULL, 0, NULL}   /* sentinel */
@@ -433,13 +695,3 @@ PyInit_interpolation(void)
     return mod;
 }
 
-
-
-    /*
-    PyObject_Print(self, stdout, 0);
-    fprintf(stdout, "\n");
-    PyObject_Print(args, stdout, 0);
-    fprintf(stdout, "\n");
-    PyObject_Print(kwargs, stdout, 0);
-    fprintf(stdout, "\n");
-    */

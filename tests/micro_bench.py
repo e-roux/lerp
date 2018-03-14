@@ -8,9 +8,11 @@ from time import time
 import numpy as np
 import pandas as pd
 
+from lerp.core.interpolation import my_interp
+
 def tiny_bench():
 
-    x = np.linspace(0, 2 * np.pi, 10)
+    x = np.linspace(0, 20_000 * np.pi, 100_000)
     y = np.sin(x)
 
     m2d = Mesh(coords=[('x', x)],data=y)
@@ -26,7 +28,7 @@ def tiny_bench():
         t1 = time()
         res1 = m2d.interpolation(_xi, interp='linear', extrap='hold')
         t2 = time()
-        res2 = interp(_xi, x, y)
+        res2 = my_interp(_xi, x, y)
         t3 = time()
         results[N] = [t1, t2, t3]
 

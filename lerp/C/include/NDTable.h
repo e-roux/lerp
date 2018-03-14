@@ -32,6 +32,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
 #include <numpy/arrayobject.h>
+#include "numpy/npy_math.h"
 
 #ifndef NDTABLE_H_
 #define NDTABLE_H_
@@ -39,6 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+
 
 
 /*! Interpolation methods */
@@ -72,14 +75,14 @@ typedef enum {
 
 /* Array attributes */
 typedef struct {
-	int 	shape[NPY_MAXDIMS];   // Array of data array dimensions.
-	int		ndim;			    // Number of array dimensions.
-	double *data;			    // Buffer object pointing to the start
+	npy_intp 	shape[NPY_MAXDIMS];   // Array of data array dimensions.
+	npy_intp		ndim;			    // Number of array dimensions.
+	npy_double *data;			    // Buffer object pointing to the start
 								// of the array’s data.
-	int		size;			    // Number of elements in the array.
-	int     itemsize;		    // Length of one array element in bytes.
-	double *coords[NPY_MAXDIMS]; //!< array of pointers to the scale values
-	int     interpmethod;		    // Function for interpolation
+	npy_intp		size;			    // Number of elements in the array.
+	npy_intp     itemsize;		    // Length of one array element in bytes.
+	npy_double *coords[NPY_MAXDIMS]; //!< array of pointers to the scale values
+	npy_intp     interpmethod;		    // Function for interpolation
 } NDTable_t;
 
 typedef NDTable_t * NDTable_h;
@@ -103,10 +106,10 @@ void NDTable_set_error_message(const char *msg, ...);
  *	@param [in]		table	the table for which to convert the subscripts
  *	@param [out]	index	the index
  */
-void NDTable_sub2ind(const int *subs, const NDTable_h table, int *index);
+void NDTable_sub2ind(const npy_intp *subs, const NDTable_h table, npy_intp *index);
 
 
-double NDTable_get_value_subs(const NDTable_h table, const int subs[]);
+npy_double NDTable_get_value_subs(const NDTable_h table, const npy_intp subs[]);
 
 
 
@@ -119,9 +122,9 @@ double NDTable_get_value_subs(const NDTable_h table, const int subs[]);
  *	@param [out]	t			the weight for the linear interpolation s.t. value == (1-t)*values[index] + t*values[index+1]
  *
  */
-void NDTable_find_index(double value, int num_values, const double values[], int *index, double *t);
+void NDTable_find_index(const npy_double key, npy_intp num_values, const npy_double values[], npy_intp *index, npy_double *t);
 
-int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double *derivatives);
+npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double *derivatives);
 
 
 /*! Evalute the total differential of the table at the given sample point and deltas using the specified inter- and extrapolation methods
@@ -136,24 +139,30 @@ int NDT_eval_internal(const NDTable_h table, const double *t, const int *subs, i
  *
  * @return		0 if the value could be evaluated, -1 otherwise
  */
-int NDT_eval_derivative(NDTable_h table, int nparams, const double params[],
-	 					const double delta_params[],
+npy_intp NDT_eval_derivative(NDTable_h table, npy_intp nparams, const npy_double params[],
+	 					const npy_double delta_params[],
 						NDTable_InterpMethod_t interp_method,
-						NDTable_ExtrapMethod_t extrap_method, double *value);
+						NDTable_ExtrapMethod_t extrap_method, npy_double *value);
 
-typedef int(*interp_fun)(const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, 
+typedef npy_intp(*interp_fun)(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, 
 						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
-						 double *value, double derivatives[]);
+						 npy_double *value, npy_double derivatives[]);
 
 // forward declare inter- and extrapolation functions
-static int interp_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_nearest	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_akima		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_fritsch_butland (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int interp_steffen         (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int extrap_hold		      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
-static int extrap_linear	      (const NDTable_h table, const double *t, const int *subs, int *nsubs, int dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, double *value, double derivatives[]);
+static npy_intp interp_hold		      (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp interp_nearest	      (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp interp_linear	      (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp interp_akima		      (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp interp_fritsch_butland (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp interp_steffen         (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp extrap_hold		      (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+static npy_intp extrap_linear	      (const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double derivatives[]);
+
+
+
+// static npy_intp
+// binary_search_with_guess(const npy_double key, const npy_double *arr,
+//                          npy_intp len, npy_intp guess);
 
 
 #ifdef __cplusplus

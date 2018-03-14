@@ -27,6 +27,7 @@ def test():
     print(f"{res} for x=[1.2, 5.6, 6] and y=645")
     return res
 
+
 # @profile
 def tiny_bench():
 
