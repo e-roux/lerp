@@ -30,9 +30,17 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
+#include <stdio.h>
+#include <Python.h>
 #include <numpy/arrayobject.h>
 #include "numpy/npy_math.h"
+#include <time.h>
+
+#define START_TIMING clock_t t; t = clock();
+#define END_TIMING t = clock() - t; double time_taken = ((double)t)/CLOCKS_PER_SEC; printf("function took %f seconds to execute \n", time_taken);
+
 
 #ifndef NDTABLE_H_
 #define NDTABLE_H_
@@ -40,8 +48,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-
 
 
 /*! Interpolation methods */
@@ -113,16 +119,6 @@ npy_double NDTable_get_value_subs(const NDTable_h table, const npy_intp subs[]);
 
 
 
-/*! Helper function to the indices for the interpolation
- *
- *  @param [in]		value		the value to search for
- *  @param [in]		num_values	the number of values
- *  @param [in]		values		the values
- *	@param [out]	index		the smallest index in [0;num_values-2] for which values[index] <= value
- *	@param [out]	t			the weight for the linear interpolation s.t. value == (1-t)*values[index] + t*values[index+1]
- *
- */
-void NDTable_find_index(const npy_double key, npy_intp num_values, const npy_double values[], npy_intp *index, npy_double *t);
 
 npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double *derivatives);
 
@@ -139,10 +135,6 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *t, const npy
  *
  * @return		0 if the value could be evaluated, -1 otherwise
  */
-npy_intp NDT_eval_derivative(NDTable_h table, npy_intp nparams, const npy_double params[],
-	 					const npy_double delta_params[],
-						NDTable_InterpMethod_t interp_method,
-						NDTable_ExtrapMethod_t extrap_method, npy_double *value);
 
 typedef npy_intp(*interp_fun)(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, 
 						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 

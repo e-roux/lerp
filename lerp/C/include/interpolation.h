@@ -2,7 +2,6 @@
 
 */
 
-#define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
 #include <NDTable.h>
 
 #ifdef __cplusplus

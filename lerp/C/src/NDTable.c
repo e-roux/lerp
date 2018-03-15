@@ -33,7 +33,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
-#include <stdio.h>
 #include <float.h>
 #include <NDTable.h>
 
@@ -95,83 +94,6 @@ void NDTable_sub2ind(const npy_intp *subs, const NDTable_h table, npy_intp *inde
 	}
 }
 
-npy_double NDTable_get_value_subs(const NDTable_h table, const npy_intp subs[]) {
-	npy_intp index;
-	NDTable_sub2ind(subs, table, &index);
-	return table->data[index];
-}
-
-
-
-void NDTable_find_index(const npy_double key, npy_intp len, const npy_double *arr,
-						npy_intp *index, npy_double *weigth) 
-{
-	npy_intp i;
-	npy_double a, b;
-	npy_double min = arr[0];
-	npy_double max = arr[len - 1];
-	npy_double range = max - min;
-
-	if(len < 2) {
-		*weigth = 0.0;
-		*index = 0;
-		return;
-	}
-
-	// estimate the index and make sure that i >= 0 and i <= 2nd last
-	i = MAX(0, MIN((npy_intp)(len * (key - min) / range), len - 2));
-
-	// go up until key < arr[i+1]
-	while (i < len - 2 && key > arr[i+1]) { i++; }
-
-	// go down until values[i] < value
-	while (i > 0 && key < arr[i]) { i--; }
-
-	a = arr[i];
-	b = arr[i+1];
-	
-	*weigth = (key - a) / (b - a);
-	*index = i;
-}
-
-npy_intp NDT_eval_derivative(NDTable_h table, npy_intp nparams,
-						const npy_double params[], const npy_double delta_params[], 
-						NDTable_InterpMethod_t interp_method,
-						NDTable_ExtrapMethod_t extrap_method,
-						npy_double *value)
-{
-	npy_intp		 i, err;
-	npy_double	 t[NPY_MAXDIMS];		// the weights for the interpolation
-	npy_intp		 index[NPY_MAXDIMS];	// the subscripts
-	npy_intp		 nsubs[NPY_MAXDIMS];	// the neighboring subscripts
-	npy_double	 derivatives[NPY_MAXDIMS];
-
-	// TODO: add null check
-
-	// if the dataset is scalar return the value
-	if (table->ndim == 0) {
-		*value = table->data[0];
-		return NDTABLE_INTERPSTATUS_OK;
-	}
-
-	// find entry point and weights
-	for (i = 0; i < table->ndim; i++) {
-		NDTable_find_index(params[i], table->shape[i], table->coords[i],
-			 			   &index[i], &t[i]);
-	}
-
-	if ((err = NDT_eval_internal(table, t, index, nsubs, 0, interp_method, extrap_method, value, derivatives)) != 0) {
-		return err;
-	}
-
-	*value = 0.0;
-
-	for (i = 0; i < nparams; i++) {
-		*value += delta_params[i] * derivatives[i];
-	}
-
-	return 0;
-}
 
 npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
@@ -188,7 +110,11 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 	}
 
 	if (dim >= table->ndim) {
-		*value = NDTable_get_value_subs(table, nsubs);
+		// *value = NDTable_get_value_subs(table, nsubs);
+		npy_intp index;
+		NDTable_sub2ind(subs, table, &index);
+		*value = table->data[index];
+
 		return 0;
 	}
 
