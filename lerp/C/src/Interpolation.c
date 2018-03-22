@@ -263,14 +263,18 @@ my_interp(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
     Py_DECREF(ax);
     return PyArray_Return(af);
 
-fail:
-    Py_XDECREF(afp);
-    Py_XDECREF(axp);
-    Py_XDECREF(ax);
-    Py_XDECREF(af);
-    return NULL;
+    fail:
+        Py_XDECREF(afp);
+        Py_XDECREF(axp);
+        Py_XDECREF(ax);
+        Py_XDECREF(af);
+        return NULL;
 }
 
+npy_intp myfunction(npy_intp elt) {
+    printf("%i\n", (int)elt);
+    return elt;
+}
 
 NDTable_h Mesh2NDTable(PyObject *mesh){
 
@@ -280,7 +284,8 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
             goto out;
     */
     // Cast data to npy_double
-    PyArrayObject *array = ARRAYD64(PyObject_GetAttrString(mesh, "data"));
+    PyArrayObject *array = ARRAYD64(
+        PyObject_GetAttrString(mesh, "data"));
    
     // coords
     PyObject *coords = PyObject_GetAttrString(mesh, "coords");
@@ -291,7 +296,8 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
 
     // Check that data array has the same dim number as coords
     if (PySequence_Length(coords_list) != PyArray_NDIM(array)) {
-        PyErr_SetString(PyExc_ValueError, "Data and bkpts have different shapes");
+        PyErr_SetString(PyExc_ValueError, 
+            "Data and bkpts have different shapes");
         // todo : exit
     }
 
@@ -308,7 +314,8 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
             key = PyTuple_GetItem(coords_list, j);
         }
 
-       PyObject *axis = PyObject_GetAttrString(mesh, (char *)PyUnicode_AS_DATA(key));
+       PyObject *axis = PyObject_GetAttrString(mesh,
+            (char *)PyUnicode_AS_DATA(key));
 
       // Py_DECREF(key);
 
@@ -320,7 +327,7 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
     output->data = PyArray_DATA(array);
     output->size = PyArray_SIZE(array);
     output->itemsize = PyArray_ITEMSIZE(array);
-    // output->interpmethod = *interp_linear;
+    output->interpmethod = &myfunction; // *interp_linear;
 
 
     Py_DECREF(coords_list);    
@@ -379,22 +386,52 @@ NDTable_ExtrapMethod_t get_extrap_method(char *method) {
     return extrapmethod;
 }
 
+/*
+
+Paramters
+---------
+mesh :    Mesh object
+          Labeled nd-array  
+targets : Sequence of array
+          Elements for which interpolation values are computed
+inter :   str
+          Interpolation method
+extrap :  str
+          Extrapolation method
+
+
+*/
+
+static PyObject *_raise_error(PyObject *module) {
+
+    PyErr_SetString(PyExc_ValueError, "Ooops.");
+    return NULL;
+}
+
+
 static PyObject *
 interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
 {
-    PyObject *ret = NULL;
-
+    PyObject *ret = NULL; // returned value, Py_BuildValue of result_array
     PyArrayObject *result_array = NULL;
 
-    PyObject *mesh = NULL;
-    PyObject *targets = NULL;
+    PyObject *mesh = NULL; // function paramters from Python code
+    PyObject *targets = NULL; // function paramters from Python code
 
     npy_intp params_size;
 
     npy_intp      index[NPY_MAXDIMS]; // the subscripts
     npy_intp      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
-    npy_double   derivatives[NPY_MAXDIMS];
-    npy_double   weigths[NPY_MAXDIMS]; // the weights for the interpolation
+    npy_double    derivatives[NPY_MAXDIMS];
+    npy_double    weigths[NPY_MAXDIMS]; // the weights for the interpolation
+    npy_double    *params[NPY_MAXDIMS];
+
+    NDTable_h example;
+
+    Py_ssize_t ndimsparams;
+    npy_double *result;
+
+    npy_intp i, j, _cache;
 
     // Set interpolation option, default to linear
     // Set extrapolation option, default to hold
@@ -403,7 +440,8 @@ interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
 
     static char *kwlist[] = {"mesh", "targets", "interp", "extrap", NULL};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwdict, "OO|ss", kwlist, &mesh, &targets,
+    if (!PyArg_ParseTupleAndKeywords(args, kwdict, "OO|ss", kwlist,
+                                     &mesh, &targets,
                                      &interp_method, &extrap_method))
 		goto out;
 
@@ -411,11 +449,12 @@ interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
     NDTable_ExtrapMethod_t extrapmethod = get_extrap_method(extrap_method);
 
     // Create NDTable_h
-    NDTable_h example = Mesh2NDTable(mesh);
+    example = Mesh2NDTable(mesh);
+    ndimsparams = PySequence_Size(targets);
 
-    Py_ssize_t ndimsparams = PySequence_Size(targets);
+    // printf("%lu\n", ndimsparams);
 
-    npy_double *params[NPY_MAXDIMS];
+    // _raise_error()
 
     for (npy_intp j=0; j < example->ndim; j++) {
         PyArrayObject *axis = ARRAYD64(PyList_GetItem(targets, j));
@@ -432,18 +471,17 @@ interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
         goto out;
     }
 
-    npy_double *result = PyArray_DATA(result_array);
+    result = PyArray_DATA(result_array);
 
-    npy_intp i, j, _cache;
     // if the dataset is scalar return the value
     if (example->ndim == 0) {
-        *result = example->data[0];
+        result = &example->data[0];
     }
     else {
         // TODO: add null check
-       // NPY_BEGIN_THREADS_DEF;
+       NPY_BEGIN_THREADS_DEF;
 
-       // NPY_BEGIN_THREADS_THRESHOLDED(params_size);
+       NPY_BEGIN_THREADS_THRESHOLDED(params_size);
 
   
         // START_TIMING;
@@ -460,29 +498,28 @@ interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
                 weigths[j] = (params[j][_cache] - example->coords[j][_cache]) /
                              (example->coords[j][_cache+1] - example->coords[j][_cache]);
             }
-            npy_intp status = NDT_eval_internal(example, weigths, index, nsubs, 0, interpmethod,
-                                            extrapmethod, &result[i], derivatives);
+            npy_intp status = NDT_eval_internal(
+                example, weigths, index, nsubs, 0,
+                interpmethod, extrapmethod, &result[i], derivatives);
  
             if(status != NDTABLE_INTERPSTATUS_OK) {
-                PyErr_Format(PyExc_ValueError, "Error %d occured in fancy_algorithm", status);
+                PyErr_Format(PyExc_ValueError,
+                    "Error %d occured in fancy_algorithm", status);
                 goto out;            }
         }
 
         // END_TIMING;
         
-        // NPY_END_THREADS;
+        NPY_END_THREADS;
 
     }
-
+    // example->interpmethod(45);
 	ret = Py_BuildValue("O", (PyObject *) result_array);
- out:
-    // Py_DECREF(result_array);
-    return ret;
+
+    out:
+       // Py_DECREF(result_array);
+        return ret;
 }
-
-
-
-
 
 
 static PyMethodDef interpolation_methods[] = {
@@ -501,8 +538,7 @@ static struct PyModuleDef interpolationmodule = {
     interpolation_methods
 };
 
-PyMODINIT_FUNC
-PyInit_interpolation(void)
+PyMODINIT_FUNC PyInit_interpolation(void)
 {
     PyObject *mod = NULL;
     import_array();

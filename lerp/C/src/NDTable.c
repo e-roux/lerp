@@ -64,6 +64,7 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 #define MIN(a,b) (((a) < (b)) ? (a) : (b))
 #endif
 
+
 /**
 Prototype of an interpolation function
 
@@ -79,28 +80,14 @@ Prototype of an interpolation function
 
 @return status code
 */
-
-
-
-
-void NDTable_sub2ind(const npy_intp *subs, const NDTable_h table, npy_intp *index) {
-	npy_intp i, k = 1;
-
-	(*index) = 0;
-
-	for(i = table->ndim-1; i >= 0; i--) {
-		(*index) += subs[i] * k;
-		k *= table->shape[i]; // TODO use pre-calculated offsets
-	}
-}
-
-
 npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 	     				   NDTable_InterpMethod_t interp_method,
 	     				   NDTable_ExtrapMethod_t extrap_method,
 	     				   npy_double *value, npy_double derivatives[])
 {
+	npy_intp i, k = 1;
+	npy_intp index;
 	interp_fun func;
 
 	// check arguments
@@ -110,9 +97,13 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 	}
 
 	if (dim >= table->ndim) {
-		// *value = NDTable_get_value_subs(table, nsubs);
-		npy_intp index;
-		NDTable_sub2ind(subs, table, &index);
+		index = 0;
+
+		for(i = table->ndim-1; i >= 0; i--) {
+			index += subs[i] * k;
+			k *= table->shape[i]; // TODO use pre-calculated offsets
+		}
+
 		*value = table->data[index];
 
 		return 0;

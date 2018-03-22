@@ -88,7 +88,7 @@ typedef struct {
 	npy_intp		size;			    // Number of elements in the array.
 	npy_intp     itemsize;		    // Length of one array element in bytes.
 	npy_double *coords[NPY_MAXDIMS]; //!< array of pointers to the scale values
-	npy_intp     interpmethod;		    // Function for interpolation
+	npy_intp     (*interpmethod)(npy_intp);		    // Function for interpolation
 } NDTable_t;
 
 typedef NDTable_t * NDTable_h;
@@ -105,14 +105,6 @@ typedef enum {
 
 /*! Sets the error message */
 void NDTable_set_error_message(const char *msg, ...);
-
-/*! Converts subscripts to index
- *
- *	@param [in]		subs	the subscripts to convert
- *	@param [in]		table	the table for which to convert the subscripts
- *	@param [out]	index	the index
- */
-void NDTable_sub2ind(const npy_intp *subs, const NDTable_h table, npy_intp *index);
 
 
 npy_double NDTable_get_value_subs(const NDTable_h table, const npy_intp subs[]);
