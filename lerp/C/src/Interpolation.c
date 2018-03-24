@@ -276,7 +276,13 @@ npy_intp myfunction(npy_intp elt) {
     return elt;
 }
 
+
+
 NDTable_h Mesh2NDTable(PyObject *mesh){
+
+
+                       // NDTable_InterpMethod_t *interpmethod,
+                       // NDTable_ExtrapMethod_t *extrapmethod 
 
     // TODO : check that mesh is subclass of xarray
     // PyObject_IsSubclass(mesh , (PyObject*))
@@ -328,6 +334,8 @@ NDTable_h Mesh2NDTable(PyObject *mesh){
     output->size = PyArray_SIZE(array);
     output->itemsize = PyArray_ITEMSIZE(array);
     output->interpmethod = &myfunction; // *interp_linear;
+    // output->interpmethod = interpmethod; // *interp_linear;
+    // output->extrapmethod = extrapmethod; // *interp_linear;
 
 
     Py_DECREF(coords_list);    
@@ -386,21 +394,7 @@ NDTable_ExtrapMethod_t get_extrap_method(char *method) {
     return extrapmethod;
 }
 
-/*
 
-Paramters
----------
-mesh :    Mesh object
-          Labeled nd-array  
-targets : Sequence of array
-          Elements for which interpolation values are computed
-inter :   str
-          Interpolation method
-extrap :  str
-          Extrapolation method
-
-
-*/
 
 static PyObject *_raise_error(PyObject *module) {
 
@@ -409,103 +403,156 @@ static PyObject *_raise_error(PyObject *module) {
 }
 
 
-static PyObject *
-interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
+static PyObject *interpolation(PyObject *NPY_UNUSED(self),
+                               PyObject *args,
+                               PyObject *kwdict)
 {
+    /**************************************************
+
+    Parameters
+    ---------
+    mesh :    Mesh object
+              Labeled nd-array  
+    targets : Sequence of array
+              Elements for which interpolation values are computed
+    inter :   str
+              Interpolation method
+    extrap :  str
+              Extrapolation method
+
+    **************************************************/
+
     PyObject *ret = NULL; // returned value, Py_BuildValue of result_array
     PyArrayObject *result_array = NULL;
 
     PyObject *mesh = NULL; // function paramters from Python code
     PyObject *targets = NULL; // function paramters from Python code
 
-    npy_intp params_size;
+    npy_intp result_array_size;
 
     npy_intp      index[NPY_MAXDIMS]; // the subscripts
     npy_intp      nsubs[NPY_MAXDIMS]; // the neighboring subscripts
     npy_double    derivatives[NPY_MAXDIMS];
     npy_double    weigths[NPY_MAXDIMS]; // the weights for the interpolation
-    npy_double    *params[NPY_MAXDIMS];
 
-    NDTable_h example;
+    NDTable_h table;
 
-    Py_ssize_t ndimsparams;
-    npy_double *result;
+    npy_double *result_data;
 
     npy_intp i, j, _cache;
 
-    // Set interpolation option, default to linear
-    // Set extrapolation option, default to hold
+    const npy_double *dx;
+
+    /**************************************************
+    Set interpolation default to linear
+    Set extrapolation default to hold
+    **************************************************/
     char *interp_method = "linear",
          *extrap_method = "hold";
 
-    static char *kwlist[] = {"mesh", "targets", "interp", "extrap", NULL};
+    /**************************************************
+    * Parse python call arguments
+    **************************************************/
+    static char *kwlist[] = {"mesh", "targets", "interp",
+                             "extrap", NULL};
 
     if (!PyArg_ParseTupleAndKeywords(args, kwdict, "OO|ss", kwlist,
                                      &mesh, &targets,
-                                     &interp_method, &extrap_method))
-		goto out;
+                                     &interp_method, &extrap_method)){
+        return NULL;       
+    }
 
+    /**************************************************
+    * Check interpolation and extrapolation method
+    **************************************************/
     NDTable_InterpMethod_t interpmethod = get_interp_method(interp_method);
     NDTable_ExtrapMethod_t extrapmethod = get_extrap_method(extrap_method);
 
-    // Create NDTable_h
-    example = Mesh2NDTable(mesh);
-    ndimsparams = PySequence_Size(targets);
+    /**************************************************
+    * Create NDTable_h
+    **************************************************/    
+    table = Mesh2NDTable(mesh); // , *interpmethod, *extrapmethod);
 
-    // printf("%lu\n", ndimsparams);
+    /**************************************************
+    * Build targets and shape plausibility check
+        - first build : only accept if all target
+          shapes are identical
+    **************************************************/    
+    NDTargets_h mytargets = (NDTargets_h) malloc(sizeof(NDTargets_t));
+    mytargets->ndim = PySequence_Size(targets);
 
-    // _raise_error()
-
-    for (npy_intp j=0; j < example->ndim; j++) {
-        PyArrayObject *axis = ARRAYD64(PyList_GetItem(targets, j));
-        params[j] = PyArray_DATA(axis);
-
-        if (j==0) {
-            params_size = PyArray_SIZE(axis);
-            result_array = (PyArrayObject *) PyArray_NewLikeArray(axis, NPY_CORDER, NULL, 1);
-        }
-        //Py_DECREF(axis);
+    if (mytargets->ndim == 0) {
+        goto fail;
     }
 
-    if (result_array == NULL) {
+    // 
+
+    for (Py_ssize_t j=0; j < mytargets->ndim; j++) {
+        mytargets->coords[j] = ARRAYD64(PyList_GetItem(targets, j));
+
+        printf("%zd\n", PyArray_SIZE(mytargets->coords[j]));
+        
+        if (j==0) {
+            result_array = (PyArrayObject *) PyArray_NewLikeArray(mytargets->coords[0],
+                NPY_CORDER, NULL, 1);
+        }
+        else {
+            if(PyArray_SIZE(mytargets->coords[j]) != 
+               PyArray_SIZE(mytargets->coords[0])) {
+                PyErr_Format(PyExc_ValueError,
+                    "All target breaking points must be the same size.");
+                goto out;
+            }
+        }
+    }
+
+    // mesh and targets must have the same shape.
+    if(mytargets->ndim != table->ndim) {
+        PyErr_Format(PyExc_ValueError,
+            "Targets shape and mesh coords have different shapes.");
         goto out;
     }
 
-    result = PyArray_DATA(result_array);
-
+    result_data = PyArray_DATA(result_array);
+    result_array_size = PyArray_SIZE(result_array);
+    /**************************************************
+    * Create NDTable_h
+    **************************************************/
     // if the dataset is scalar return the value
-    if (example->ndim == 0) {
-        result = &example->data[0];
+    if (table->ndim == 0) {
+        result_data = &table->data[0];
     }
     else {
         // TODO: add null check
        NPY_BEGIN_THREADS_DEF;
-
-       NPY_BEGIN_THREADS_THRESHOLDED(params_size);
-
+       NPY_BEGIN_THREADS_THRESHOLDED(result_array_size);
   
         // START_TIMING;
         // Iteration over each points
-        for(i = 0; i < params_size; i++) {
-            // set array of parameter in each direction
-            for(j = 0; j < example->ndim; j++) {
-                // Find index
+        for(i = 0; i < result_array_size; i++) {
 
-                _cache = binary_search_with_guess(params[j][i], example->coords[j],
-                                                  example->shape[j], _cache);
+            // search index for interpolation and calculate weight
+            for(j = 0; j < table->ndim; j++) {
+                dx = (const npy_double *)PyArray_DATA(mytargets->coords[j]);
+
+                _cache = binary_search_with_guess(dx[i], 
+                                                  table->coords[j],
+                                                  table->shape[j],
+                                                  _cache);
                 index[j] = _cache;
 
-                weigths[j] = (params[j][_cache] - example->coords[j][_cache]) /
-                             (example->coords[j][_cache+1] - example->coords[j][_cache]);
+                weigths[j] = (dx[_cache] - table->coords[j][_cache]) /
+                             (table->coords[j][_cache+1] - table->coords[j][_cache]);
             }
             npy_intp status = NDT_eval_internal(
-                example, weigths, index, nsubs, 0,
-                interpmethod, extrapmethod, &result[i], derivatives);
+                table, weigths, index, nsubs, 0,
+                interpmethod, extrapmethod, &result_data[i]);
  
             if(status != NDTABLE_INTERPSTATUS_OK) {
                 PyErr_Format(PyExc_ValueError,
                     "Error %d occured in fancy_algorithm", status);
-                goto out;            }
+                goto out;
+            }
         }
 
         // END_TIMING;
@@ -513,12 +560,21 @@ interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
         NPY_END_THREADS;
 
     }
-    // example->interpmethod(45);
+
+    /**************************************************
+    * Check interpolation and extrapolation method
+    **************************************************/
 	ret = Py_BuildValue("O", (PyObject *) result_array);
+
+    for (npy_intp j=0; j < mytargets->ndim; j++) {
+       Py_XDECREF(mytargets->coords[j]);
+    }
 
     out:
        // Py_DECREF(result_array);
         return ret;
+    fail:
+        return NULL;        
 }
 
 

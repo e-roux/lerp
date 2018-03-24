@@ -9,25 +9,6 @@ import numpy as np
 import pandas as pd
 
 
-def test_success():
-    assert True
-
-
-def test():
-    np.random.seed(123)
-    m3d = Mesh(coords=[('x', [1, 2, 3, 6]),
-                       ('y',[13, 454, 645, 1233, 1535])],
-               data=np.random.randn(4, 5))
-
-    print(f"m3d : {m3d}")
-
-    res = m3d.interpolation([1.2, 5.6, 6], 645)
-
-    assert res[0] == 0.1406002726703582, f"res[0] = {res[0]} instead of 0.14060027"  #  2.09406656  2.18678609
-    print(f"{res} for x=[1.2, 5.6, 6] and y=645")
-    return res
-
-
 # @profile
 def tiny_bench():
 
@@ -69,10 +50,10 @@ print(m2d.x)
 
 #print(m2d.derivate(xi))
 
-print("*"*80)
-print("test")
-print("*"*80)
-test()
+# print("*"*80)
+# print("test")
+# print("*"*80)
+# test()
 print("*"*80)
 print("Tiny bench")
 print("*"*80)

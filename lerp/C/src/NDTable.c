@@ -69,14 +69,13 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 Prototype of an interpolation function
 
 @param  table			[in]		table handle
-@param  t				[in]		weights for the interpolation (normalized)
+@param  weight				[in]		weights for the interpolation (normalized)
 @param  subs			[in]		subscripts of the left sample point
 @param  nsubs			[in,out]	subscripts of the right (next) sample point
 @param  dim				[in]		index of the current dimension
 @param  interp_method	[in]		index of the current dimension
 @param  extrap_method	[in]		index of the current dimension
-@param  value			[out]		interpoated value
-@param  derivatives		[out]		partial derivatives
+@param  result			[out]		interpolated result
 
 @return status code
 */
@@ -84,19 +83,19 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 	     				   NDTable_InterpMethod_t interp_method,
 	     				   NDTable_ExtrapMethod_t extrap_method,
-	     				   npy_double *value, npy_double derivatives[])
+	     				   npy_double *result)
 {
-	npy_intp i, k = 1;
-	npy_intp index;
+	npy_intp index, i, k = 1;
 	interp_fun func;
 
 	// check arguments
 	if (weigths == NULL || subs == NULL || nsubs == NULL || 
-		value == NULL || derivatives == NULL) {
+		result == NULL ) {
 		return -1;
 	}
 
 	if (dim >= table->ndim) {
+
 		index = 0;
 
 		for(i = table->ndim-1; i >= 0; i--) {
@@ -104,10 +103,12 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 			k *= table->shape[i]; // TODO use pre-calculated offsets
 		}
 
-		*value = table->data[index];
+		*result = table->data[index];
 
 		return 0;
 	}
+
+	// printf("Interpolation method %i\n", interp_method);
 
 	// find the right function:
 	if(table->shape[dim] < 2) {
@@ -126,7 +127,7 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 			}
 			break;
 		default:
-			sprintf("", "Requested value is outside data range");
+			printf("Requested value is outside data range");
 			return -1;
 		}
 	} else {
@@ -141,46 +142,42 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 		default: return -1; // TODO: set error message
 		}
 	}
-
-	return (*func)(table, weigths, subs, nsubs, dim, interp_method, extrap_method, value, derivatives);
+	return (*func)(table, weigths, subs, nsubs, dim, interp_method, extrap_method, result);
 }
 
-static npy_intp interp_hold(const NDTable_h table, const npy_double *t, const npy_intp *subs,
+static npy_intp interp_hold(const NDTable_h table, const npy_double *weight, const npy_intp *subs,
 							npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method,
-							NDTable_ExtrapMethod_t extrap_method, npy_double *value,
-							npy_double slopes[]) {
+							NDTable_ExtrapMethod_t extrap_method, npy_double *result) {
 	nsubs[dim] = subs[dim]; // always take the left sample value
 
-	slopes[dim] = 0;
-	return NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, value, slopes);
+	return NDT_eval_internal(table, weight, subs, nsubs, dim + 1, interp_method, extrap_method, result);
 }
 
-static npy_intp interp_nearest(const NDTable_h table, const npy_double *t, const npy_intp *subs,
+static npy_intp interp_nearest(const NDTable_h table, const npy_double *weight, const npy_intp *subs,
 							   npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method,
-							   NDTable_ExtrapMethod_t extrap_method, npy_double *value,
-							   npy_double slopes[]) {
+							   NDTable_ExtrapMethod_t extrap_method, npy_double *result) {
 	npy_intp err;
-	nsubs[dim] = t[dim] < 0.5 ? subs[dim] : subs[dim] + 1;
-	slopes[dim] = 0;
+	nsubs[dim] = weight[dim] < 0.5 ? subs[dim] : subs[dim] + 1;
 
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, value, slopes)) != 0) {
+	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
+								 interp_method, extrap_method,
+								 result)) != 0) {
 		return err;
 	}
 
 	// if the value is not finite return NAN
-	if (!ISFINITE(*value)) {
-		*value = NAN;
-		slopes[dim] = NAN;
+	if (!ISFINITE(*result)) {
+		*result = NAN;
 	}
 
 	return 0;
 }
 
-static npy_intp interp_linear(const NDTable_h table, const npy_double *t,
+static npy_intp interp_linear(const NDTable_h table, const npy_double *weight,
 							  const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							  NDTable_InterpMethod_t interp_method,
 							  NDTable_ExtrapMethod_t extrap_method,
-							  npy_double *value, npy_double slopes[])
+							  npy_double *result) 
 {
 	npy_intp err;
 	npy_double a, b;
@@ -188,56 +185,56 @@ static npy_intp interp_linear(const NDTable_h table, const npy_double *t,
 	// get the left value
 	nsubs[dim] = subs[dim];
 
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, 
+	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1, 
 								 interp_method, extrap_method,
-								 &a, slopes)) != 0) {
+								 &a)) != 0) {
 		return err;
 	}
 
 	// get the right value
 	nsubs[dim] = subs[dim] + 1;
 
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1,
+	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
 								 interp_method, extrap_method,
-								 &b, slopes)) != 0) {
+								 &b)) != 0) {
 		return err;
 	}
 
 	// if any of the values is not finite return NAN
 	if (npy_isnan(a) || !npy_isnan(b)) {
-		*value = NAN;
-		slopes[dim] = NAN;
+		*result = NAN;
 		return 0;
 	}
 
 	// calculate the interpolated value
-	*value = (1 - t[dim]) * a + t[dim] * b;
-
-	// calculate the derivative
-	slopes[dim] = (b - a) / (table->coords[dim][subs[dim] + 1] - table->coords[dim][subs[dim]]);
+	*result = (1 - weight[dim]) * a + weight[dim] * b;
 
 	return 0;
 }
 
-static void cubic_hermite_spline(const npy_double x0, const npy_double x1, const npy_double y0, const npy_double y1, const npy_double t, const npy_double c[4], npy_double *value, npy_double *derivative) {
+static void cubic_hermite_spline(const npy_double x0, const npy_double x1,
+								 const npy_double y0, const npy_double y1,
+								 const npy_double weight, const npy_double c[4],
+								 npy_double *result) {
 
 	npy_double v;
 
-	if (t < 0) { // extrapolate left
-		*value = y0 + c[2] * ((x1 - x0) * t);
-		*derivative = c[2];
-	} else if (t <= 1) { // interpolate
-		v = (x1 - x0) * t;
-		*value = ((c[0] * v + c[1]) * v + c[2]) * v + c[3];
-		*derivative = (3 * c[0] * v + (2 * c[1])) * v + c[2];
+	if (weight < 0) { // extrapolate left
+		*result = y0 + c[2] * ((x1 - x0) * weight);
+	} else if (weight <= 1) { // interpolate
+		v = (x1 - x0) * weight;
+		*result = ((c[0] * v + c[1]) * v + c[2]) * v + c[3];
 	} else { // extrapolate right
 		v = x1 - x0;
-		*value = y1 +   ((3 * c[0] * v + 2 * c[1]) * v + c[2]) * (v * (t - 1));
-		*derivative = (3 * c[0] * v + 2 * c[1]) * v + c[2];
+		*result = y1 +   ((3 * c[0] * v + 2 * c[1]) * v + c[2]) * (v * (weight - 1));
 	}
 }
 
-static npy_intp interp_akima(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double slopes[]) {
+static npy_intp interp_akima(const NDTable_h table, const npy_double *weight,
+							 const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
+							 NDTable_InterpMethod_t interp_method,
+							 NDTable_ExtrapMethod_t extrap_method,
+							 npy_double *result) {
 
 	npy_double x[6] = { 0, 0, 0, 0, 0, 0};
 	npy_double y[6] = { 0, 0, 0, 0, 0, 0};
@@ -259,7 +256,9 @@ static npy_intp interp_akima(const NDTable_h table, const npy_double *t, const n
 			x[i] = table->coords[dim][idx];
 
 			nsubs[dim] = idx;
-			if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &y[i], slopes)) != 0) {
+			if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
+										 interp_method, extrap_method,
+										 &y[i])) != 0) {
 				return err;
 			}
 		}
@@ -268,8 +267,7 @@ static npy_intp interp_akima(const NDTable_h table, const npy_double *t, const n
 	// if any of the values is not finite return NAN
 	for (i = 0; i < 6; i++) {
 		if (!ISFINITE(y[i])) {
-			*value = NAN;
-			slopes[dim] = NAN;
+			*result = NAN;
 			return 0;
 		}
 	}
@@ -323,12 +321,16 @@ static npy_intp interp_akima(const NDTable_h table, const npy_double *t, const n
 
 	c[3] = y[2];
 
-	cubic_hermite_spline(x[2], x[3], y[2], y[3], t[dim], c, value, &slopes[dim]);
+	cubic_hermite_spline(x[2], x[3], y[2], y[3], weight[dim], c, result);
 
 	return 0;
 }
 
-static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double slopes[]) {
+static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *weight,
+									   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
+									   NDTable_InterpMethod_t interp_method,
+									   NDTable_ExtrapMethod_t extrap_method,
+									   npy_double *result) {
 
 	npy_double x [4] = { 0, 0, 0, 0 };
 	npy_double y [4] = { 0, 0, 0, 0 };
@@ -348,7 +350,8 @@ static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *
 			x[i] = table->coords[dim][idx];
 
 			nsubs[dim] = idx;
-			if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &y[i], slopes)) != 0) {
+			if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
+										 interp_method, extrap_method, &y[i])) != 0) {
 				return err;
 			}
 		}
@@ -357,8 +360,7 @@ static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *
 	// if any of the values is not finite return NAN
 	for (i = 0; i < 4; i++) {
 		if (!ISFINITE(y[i])) {
-			*value = NAN;
-			slopes[dim] = NAN;
+			*result = NAN;
 			return 0;
 		}
 	}
@@ -397,12 +399,16 @@ static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *
 
     c[3] = y[1];
 
-	cubic_hermite_spline(x[1], x[2], y[1], y[2], t[dim], c, value, &slopes[dim]);
+	cubic_hermite_spline(x[1], x[2], y[1], y[2], weight[dim], c, result);
 
 	return 0;
 }
 
-static npy_intp interp_steffen(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double slopes[]) {
+static npy_intp interp_steffen(const NDTable_h table, const npy_double *weight,
+							   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
+							   NDTable_InterpMethod_t interp_method,
+							   NDTable_ExtrapMethod_t extrap_method,
+							   npy_double *result) {
 
 	npy_double x [4] = { 0, 0, 0, 0 };
 	npy_double y [4] = { 0, 0, 0, 0 };
@@ -422,7 +428,8 @@ static npy_intp interp_steffen(const NDTable_h table, const npy_double *t, const
 			x[i] = table->coords[dim][idx];
 
 			nsubs[dim] = idx;
-			if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &y[i], slopes)) != 0) {
+			if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
+										 interp_method, extrap_method, &y[i])) != 0) {
 				return err;
 			}
 		}
@@ -431,8 +438,7 @@ static npy_intp interp_steffen(const NDTable_h table, const npy_double *t, const
 	// if any of the values is not finite return NAN
 	for (i = 0; i < 4; i++) {
 		if (!ISFINITE(y[i])) {
-			*value = NAN;
-			slopes[dim] = NAN;
+			*result = NAN;
 			return 0;
 		}
 	}
@@ -482,55 +488,64 @@ static npy_intp interp_steffen(const NDTable_h table, const npy_double *t, const
     c[0] = (c[2] + c2 - 2 * d[1]) / (dx[1] * dx[1]);
     c[3] = y[1];
 
-	cubic_hermite_spline(x[1], x[2], y[1], y[2], t[dim], c, value, &slopes[dim]);
+	cubic_hermite_spline(x[1], x[2], y[1], y[2], weight[dim], c, result);
 
 	return 0;
 }
 
-static npy_intp extrap_hold(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double slopes[]) {
-	npy_intp err;
-	nsubs[dim] = t[dim] < 0.0 ? subs[dim] : subs[dim] + 1;
-	slopes[dim] = 0;
 
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, value, slopes)) != 0) {
+static npy_intp extrap_hold(const NDTable_h table, const npy_double *weigths,
+							const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
+							NDTable_InterpMethod_t interp_method,
+							NDTable_ExtrapMethod_t extrap_method,
+							npy_double *result)
+{
+	npy_intp err;
+	nsubs[dim] = weigths[dim] < 0.0 ? subs[dim] : subs[dim] + 1;
+
+	if ((err = NDT_eval_internal(table, weigths, subs, nsubs, dim + 1,
+								 interp_method, extrap_method, result)) != 0) {
 		return err;
 	}
 
 	// if the value is not finite return NAN
-	if (!ISFINITE(*value)) {
-		*value = NAN;
-		slopes[dim] = NAN;
+	if (!ISFINITE(*result)) {
+		*result = NAN;
 	}
 
 	return 0;
 }
 
-static npy_intp extrap_linear(const NDTable_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value, npy_double slopes[]) {
+
+static npy_intp extrap_linear(const NDTable_h table, const npy_double *weigths,
+							  const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
+							  NDTable_InterpMethod_t interp_method,
+							  NDTable_ExtrapMethod_t extrap_method,
+							  npy_double *result)
+{
 	npy_intp err;
 	npy_double a, b;
 
 	nsubs[dim] = subs[dim];
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &a, slopes)) != 0) {
+	if ((err = NDT_eval_internal(table, weigths, subs, nsubs, dim + 1,
+								 interp_method, extrap_method, &a)) != 0) {
 		return err;
 	}
 
 	nsubs[dim] = subs[dim] + 1;
-	if ((err = NDT_eval_internal(table, t, subs, nsubs, dim + 1, interp_method, extrap_method, &b, slopes)) != 0) {
+	if ((err = NDT_eval_internal(table, weigths, subs, nsubs, dim + 1,
+								 interp_method, extrap_method, &b)) != 0) {
 		return err;
 	}
 
 	// if any of the values is not finite return NAN
 	if (!ISFINITE(a) || !ISFINITE(b)) {
-		*value = NAN;
-		slopes[dim] = NAN;
+		*result = NAN;
 		return 0;
 	}
 
 	// calculate the extrapolated value
-	*value = (1 - t[dim]) * a + t[dim] * b;
-
-	// calculate the derivative
-	slopes[dim] = (b - a) / (table->coords[dim][subs[dim] + 1] - table->coords[dim][subs[dim]]);
+	*result = (1 - weigths[dim]) * a + weigths[dim] * b;
 
 	return 0;
 }

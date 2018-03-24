@@ -167,7 +167,6 @@ class Mesh(DataArray):
     def interpolation(self, *points, interp='linear', extrap='hold'):
         """Interpolation
         """
-
         return interpolation(self, list(points),
                              interp=interp, extrap=extrap)
 
