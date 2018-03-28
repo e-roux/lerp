@@ -12,11 +12,11 @@ from xarray.core.dataarray import DataArray
 from xarray.core.pycompat import dask_array_type
 from xarray.core.formatting import (unindexed_dims_repr, dim_summary,
                                     short_dask_repr, short_array_repr, attrs_repr)
-from .core.config import get_option
+from lerp.core.config import get_option
 
 # from .core.interpolation_ctypes import derivate
 
-from .core.interpolation import interpolation
+from lerp.core.interpolation import interpolation
 
 _html_style = {
     'table': 'border: 0px none;',

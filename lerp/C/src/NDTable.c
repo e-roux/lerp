@@ -30,17 +30,13 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-#include <float.h>
-#include <NDTable.h>
+#include <Python.h>
+#include "NDTable.h"
+#include <numpy/npy_math.h>
 
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS 1
-// https://docs.python.org/3/faq/windows.html#is-a-pyd-file-the-same-as-a-dll
-void PyInit_libNDTable() {}
 #endif
 
 
@@ -65,6 +61,90 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 #endif
 
 
+
+Mesh_h Mesh_FromXarray(PyObject *mesh){
+
+    // TODO : check that mesh is subclass of xarray
+    // PyObject_IsSubclass(mesh , (PyObject*))
+    /*    if (!PyArray_Check(data_array))
+            goto out;
+    */
+    Mesh_h output = (Mesh_h) malloc(sizeof(Mesh_t));
+
+    /**************************************************
+    * data
+    **************************************************/
+    // Return value: New reference.
+    PyObject *data = PyObject_GetAttrString(mesh, "data");
+
+    // http://numerical.recipes/nr3_python_tutorial.html
+    // // Cast data to npy_double
+    PyObject_Print(data, stdout, 0);
+    printf("\n");
+    // PyObject *array = PyArray_ContiguousFromAny(
+    //                         data , NPY_DOUBLE, 1, 1);
+   
+    PyArrayObject* array = (PyArrayObject*)PyArray_ContiguousFromAny(
+                            data , NPY_DOUBLE, 0, 0);
+
+
+    PyObject_Print(data, stdout, 0);
+    Py_DECREF(data);
+  
+    // coords
+    PyObject *coords = PyObject_GetAttrString(mesh, "coords");
+    PyObject *variable = PyObject_GetAttrString(mesh, "variable");
+    PyObject *coords_list = PyObject_GetAttrString(mesh, "dims");
+
+    PyObject *key;
+
+    // Check that data array has the same dim number as coords
+    if (PySequence_Length(coords_list) != PyArray_NDIM(array)) {
+        PyErr_SetString(PyExc_ValueError, 
+            "Data and bkpts have different shapes");
+        // todo : exit
+    }
+
+    npy_intp *shape_x = PyArray_DIMS(array);
+
+
+    output->ndim = PyArray_NDIM(array);
+    for (Py_ssize_t j=0; j < output->ndim; j++) {
+        output->shape[j] = shape_x[j];
+
+        if (PyTuple_Check(coords_list)) {
+            /* PySequence_GetItem INCREFs key. */
+            key = PyTuple_GetItem(coords_list, j);
+        }
+
+       PyObject *axis = PyObject_GetAttrString(mesh,
+            (char *)PyUnicode_AS_DATA(key));
+
+      // Py_DECREF(key);
+
+        PyArrayObject *coords_tmp =  (PyArrayObject*) PyArray_ContiguousFromAny(
+            axis, NPY_DOUBLE, 0, 0);
+        output->coords[j] = PyArray_DATA(coords_tmp);
+
+        Py_DECREF(axis);
+    }
+    output->data = PyArray_DATA(array);
+    output->size = PyArray_SIZE(array);
+    output->itemsize = PyArray_ITEMSIZE(array);
+    // output->interpmethod = &myfunction; // *interp_linear;
+    // output->interpmethod = interpmethod; // *interp_linear;
+    // output->extrapmethod = extrapmethod; // *interp_linear;
+
+
+    Py_DECREF(coords_list);    
+    Py_DECREF(coords);    
+    Py_DECREF(array);
+
+    return output;
+}
+
+
+
 /**
 Prototype of an interpolation function
 
@@ -79,7 +159,7 @@ Prototype of an interpolation function
 
 @return status code
 */
-npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
+npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 	     				   NDTable_InterpMethod_t interp_method,
 	     				   NDTable_ExtrapMethod_t extrap_method,
@@ -104,7 +184,6 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 		}
 
 		*result = table->data[index];
-
 		return 0;
 	}
 
@@ -142,10 +221,11 @@ npy_intp NDT_eval_internal(const NDTable_h table, const npy_double *weigths,
 		default: return -1; // TODO: set error message
 		}
 	}
+
 	return (*func)(table, weigths, subs, nsubs, dim, interp_method, extrap_method, result);
 }
 
-static npy_intp interp_hold(const NDTable_h table, const npy_double *weight, const npy_intp *subs,
+static npy_intp interp_hold(const Mesh_h table, const npy_double *weight, const npy_intp *subs,
 							npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method,
 							NDTable_ExtrapMethod_t extrap_method, npy_double *result) {
 	nsubs[dim] = subs[dim]; // always take the left sample value
@@ -153,7 +233,7 @@ static npy_intp interp_hold(const NDTable_h table, const npy_double *weight, con
 	return NDT_eval_internal(table, weight, subs, nsubs, dim + 1, interp_method, extrap_method, result);
 }
 
-static npy_intp interp_nearest(const NDTable_h table, const npy_double *weight, const npy_intp *subs,
+static npy_intp interp_nearest(const Mesh_h table, const npy_double *weight, const npy_intp *subs,
 							   npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method,
 							   NDTable_ExtrapMethod_t extrap_method, npy_double *result) {
 	npy_intp err;
@@ -173,7 +253,7 @@ static npy_intp interp_nearest(const NDTable_h table, const npy_double *weight, 
 	return 0;
 }
 
-static npy_intp interp_linear(const NDTable_h table, const npy_double *weight,
+static npy_intp interp_linear(const Mesh_h table, const npy_double *weight,
 							  const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							  NDTable_InterpMethod_t interp_method,
 							  NDTable_ExtrapMethod_t extrap_method,
@@ -230,7 +310,7 @@ static void cubic_hermite_spline(const npy_double x0, const npy_double x1,
 	}
 }
 
-static npy_intp interp_akima(const NDTable_h table, const npy_double *weight,
+static npy_intp interp_akima(const Mesh_h table, const npy_double *weight,
 							 const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							 NDTable_InterpMethod_t interp_method,
 							 NDTable_ExtrapMethod_t extrap_method,
@@ -326,7 +406,7 @@ static npy_intp interp_akima(const NDTable_h table, const npy_double *weight,
 	return 0;
 }
 
-static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *weight,
+static npy_intp interp_fritsch_butland(const Mesh_h table, const npy_double *weight,
 									   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 									   NDTable_InterpMethod_t interp_method,
 									   NDTable_ExtrapMethod_t extrap_method,
@@ -404,7 +484,7 @@ static npy_intp interp_fritsch_butland(const NDTable_h table, const npy_double *
 	return 0;
 }
 
-static npy_intp interp_steffen(const NDTable_h table, const npy_double *weight,
+static npy_intp interp_steffen(const Mesh_h table, const npy_double *weight,
 							   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							   NDTable_InterpMethod_t interp_method,
 							   NDTable_ExtrapMethod_t extrap_method,
@@ -494,7 +574,7 @@ static npy_intp interp_steffen(const NDTable_h table, const npy_double *weight,
 }
 
 
-static npy_intp extrap_hold(const NDTable_h table, const npy_double *weigths,
+static npy_intp extrap_hold(const Mesh_h table, const npy_double *weigths,
 							const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							NDTable_InterpMethod_t interp_method,
 							NDTable_ExtrapMethod_t extrap_method,
@@ -517,7 +597,7 @@ static npy_intp extrap_hold(const NDTable_h table, const npy_double *weigths,
 }
 
 
-static npy_intp extrap_linear(const NDTable_h table, const npy_double *weigths,
+static npy_intp extrap_linear(const Mesh_h table, const npy_double *weigths,
 							  const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							  NDTable_InterpMethod_t interp_method,
 							  NDTable_ExtrapMethod_t extrap_method,
