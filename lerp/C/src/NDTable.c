@@ -52,98 +52,6 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 #endif
 
 
-#ifndef MAX
-#define MAX(a,b) (((a) > (b)) ? (a) : (b))
-#endif
-
-#ifndef MIN
-#define MIN(a,b) (((a) < (b)) ? (a) : (b))
-#endif
-
-
-
-Mesh_h Mesh_FromXarray(PyObject *mesh){
-
-    // TODO : check that mesh is subclass of xarray
-    // PyObject_IsSubclass(mesh , (PyObject*))
-    /*    if (!PyArray_Check(data_array))
-            goto out;
-    */
-    Mesh_h output = (Mesh_h) malloc(sizeof(Mesh_t));
-
-    /**************************************************
-    * data
-    **************************************************/
-    // Return value: New reference.
-    PyObject *data = PyObject_GetAttrString(mesh, "data");
-
-    // http://numerical.recipes/nr3_python_tutorial.html
-    // // Cast data to npy_double
-    PyObject_Print(data, stdout, 0);
-    printf("\n");
-    // PyObject *array = PyArray_ContiguousFromAny(
-    //                         data , NPY_DOUBLE, 1, 1);
-   
-    PyArrayObject* array = (PyArrayObject*)PyArray_ContiguousFromAny(
-                            data , NPY_DOUBLE, 0, 0);
-
-
-    PyObject_Print(data, stdout, 0);
-    Py_DECREF(data);
-  
-    // coords
-    PyObject *coords = PyObject_GetAttrString(mesh, "coords");
-    PyObject *variable = PyObject_GetAttrString(mesh, "variable");
-    PyObject *coords_list = PyObject_GetAttrString(mesh, "dims");
-
-    PyObject *key;
-
-    // Check that data array has the same dim number as coords
-    if (PySequence_Length(coords_list) != PyArray_NDIM(array)) {
-        PyErr_SetString(PyExc_ValueError, 
-            "Data and bkpts have different shapes");
-        // todo : exit
-    }
-
-    npy_intp *shape_x = PyArray_DIMS(array);
-
-
-    output->ndim = PyArray_NDIM(array);
-    for (Py_ssize_t j=0; j < output->ndim; j++) {
-        output->shape[j] = shape_x[j];
-
-        if (PyTuple_Check(coords_list)) {
-            /* PySequence_GetItem INCREFs key. */
-            key = PyTuple_GetItem(coords_list, j);
-        }
-
-       PyObject *axis = PyObject_GetAttrString(mesh,
-            (char *)PyUnicode_AS_DATA(key));
-
-      // Py_DECREF(key);
-
-        PyArrayObject *coords_tmp =  (PyArrayObject*) PyArray_ContiguousFromAny(
-            axis, NPY_DOUBLE, 0, 0);
-        output->coords[j] = PyArray_DATA(coords_tmp);
-
-        Py_DECREF(axis);
-    }
-    output->data = PyArray_DATA(array);
-    output->size = PyArray_SIZE(array);
-    output->itemsize = PyArray_ITEMSIZE(array);
-    // output->interpmethod = &myfunction; // *interp_linear;
-    // output->interpmethod = interpmethod; // *interp_linear;
-    // output->extrapmethod = extrapmethod; // *interp_linear;
-
-
-    Py_DECREF(coords_list);    
-    Py_DECREF(coords);    
-    Py_DECREF(array);
-
-    return output;
-}
-
-
 
 /**
 Prototype of an interpolation function
@@ -353,7 +261,7 @@ static npy_intp interp_akima(const Mesh_h table, const npy_double *weight,
 	}
 
 	// calculate the divided differences
-	for (i = MAX(0, 2 - sub); i < MIN(5, 1 + n - sub); i++) {
+	for (i = PyArray_MAX(0, 2 - sub); i < PyArray_MIN(5, 1 + n - sub); i++) {
 		d[i] = (y[i + 1] - y[i]) / (x[i + 1] - x[i]);
 	}
 

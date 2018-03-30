@@ -8,14 +8,24 @@ https://gist.github.com/saghul/1121260
 
 
 Reference count: http://edcjones.tripod.com/refcount.html
+
+
+ safe approach is to always use the generic
+ operations  (functions whose name begins with 
+ PyObject_, PyNumber_, PySequence_ or PyMapping_).
 */
+
+// #define NPY_ALLOW_THREADS 1
+
 
 #include <Python.h>
 
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
+#define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API
 #include <numpy/arrayobject.h>
 #include "LERP_intern.h"
 #include "NDTable.h"
+#include "Mesh.h"
 
 // #include "interpolation.h"
 // #include "Mesh.h"
@@ -24,12 +34,22 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
 
 
-npy_intp evaluate_interpolation(Mesh_t mesh, const npy_double **params, npy_intp params_size,
-                           NDTable_InterpMethod_t interp_method,
-                           NDTable_ExtrapMethod_t extrap_method,
-                           npy_double *result);
+#define REFCOUNT(obj) printf("Refcount obj: %zi\n", obj->ob_refcnt);
 
-static PyObject *interpolation(PyObject *self, PyObject *args, PyObject *kwargs);
+
+
+#define error_converting(x)  (((x) == -1) && PyErr_Occurred())
+
+
+
+npy_intp evaluate_interpolation(
+    Mesh_t mesh, const npy_double **params, npy_intp params_size,
+    NDTable_InterpMethod_t interp_method,
+    NDTable_ExtrapMethod_t extrap_method,
+    npy_double *result);
+
+static PyObject *interpolation(PyObject *self,
+    PyObject *args, PyObject *kwargs);
 
 
 NDTable_InterpMethod_t get_interp_method(char *method) {
@@ -149,7 +169,15 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
 
     /**************************************************
     * Create Mesh_h
-    **************************************************/    
+    **************************************************/
+
+
+    // PyObject *data = PyObject_GetAttrString(mesh, "data");
+    // PyArrayObject* array = (PyArrayObject*) PyArray_ContiguousFromAny(
+    //                         data , NPY_DOUBLE, 0, 0);
+
+    // printf("Refcount array : %zi\n", array);
+
     table = Mesh_FromXarray(mesh); // , *interpmethod, *extrapmethod);
 
     /**************************************************
@@ -183,7 +211,9 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
                 goto out;
             }
         }
+
     }
+//    Py_DECREF(targets);
 
     // mesh and targets must have the same shape.
     if(mytargets->ndim != table->ndim) {
@@ -244,7 +274,7 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
     /**************************************************
     * Check interpolation and extrapolation method
     **************************************************/
-	ret = Py_BuildValue("O", (PyObject *) result_array);
+    ret = Py_BuildValue("O", (PyObject *) result_array);
 
     // for (npy_intp j=0; j < mytargets->ndim; j++) {
     //    Py_XDECREF(mytargets->coords[j]);

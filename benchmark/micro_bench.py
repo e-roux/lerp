@@ -7,6 +7,7 @@ from lerp import Mesh
 from time import time
 import numpy as np
 import pandas as pd
+import sys
 
 from lerp.core.interpolation import my_interp
 
@@ -29,8 +30,15 @@ def tiny_bench():
             np.float64) + np.random.random(N)
         _xi.sort()
         t1 = time()
+        # print(f"Références à y: {sys.getrefcount(y)}")
+        # print(f"Références à _xi: {sys.getrefcount(_xi)}")
+        # print(f"Références à x: {sys.getrefcount(x)}")
         res1 = m2d.interpolation(_xi, interp='linear', extrap='hold')
+        # print(f"Références à y: {sys.getrefcount(y)}")
         t2 = time()
+
+        # print(f"Références à _xi: {sys.getrefcount(_xi)}")
+        # print(f"Références à x: {sys.getrefcount(x)}")
         res2 = my_interp(_xi, x, y)
         t3 = time()
         results[N] = [t1, t2, t3]

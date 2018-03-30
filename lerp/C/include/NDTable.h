@@ -55,7 +55,7 @@ extern "C" {
 
 /* Array attributes */
 typedef struct {
-	npy_intp 	shape[NPY_MAXDIMS];   // Array of data array dimensions.
+	npy_intp 	shape[NPY_MAXDIMS]; // Array of data array dimensions.
 	npy_intp	ndim;			    // Number of array dimensions.
 	npy_intp	size;			    // Number of elements in the array.
 	npy_intp    itemsize;		    // Length of one array element in bytes.

@@ -37,10 +37,18 @@ extra_compile_args = ['-Wall', '-Wno-unused-function', '-Wno-unused-variable']\
 ext_modules = [Extension('lerp.core.interpolation',
                          sources=['lerp/C/src/LERP_intern.c',
                                   'lerp/C/src/NDTable.c',
+                                  'lerp/C/src/Mesh.c',
                                   'lerp/C/src/interpolation.c'],
                          include_dirs=[np.get_include(),
                                        'lerp/C/include'],
-                         extra_compile_args=extra_compile_args)]
+                         extra_compile_args=extra_compile_args),
+               Extension('lerp.core.utils',
+                         sources=['lerp/C/src/LERP_intern.c',
+                                  'lerp/C/src/utils.c',],
+                         include_dirs=[np.get_include(),
+                                       'lerp/C/include'],
+                         extra_compile_args=extra_compile_args),
+               ]
 
 setup(
     author=" Emmanuel Roux",
