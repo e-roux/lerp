@@ -19,16 +19,11 @@
  * @return index
  */
 #include <Python.h>
-#include <structmember.h>
 #define NO_IMPORT_ARRAY
 #define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
-#include <numpy/arrayobject.h>
-#include <numpy/npy_math.h>
 
-
-// #include "LERP_intern.h"
-
+#include "LERP_intern.h"
 
 
 #define LIKELY_IN_CACHE_SIZE 8

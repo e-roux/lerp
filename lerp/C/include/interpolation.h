@@ -11,7 +11,6 @@
 extern "C" {
 #endif
 
-// #define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
 #define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
 
 
@@ -21,6 +20,7 @@ npy_intp evaluate_interpolation(Mesh_t mesh, const npy_double **params, npy_intp
                            npy_double *result);
 
 static PyObject *interpolation(PyObject *self, PyObject *args, PyObject *kwargs);
+
 
 #ifdef __cplusplus
 }

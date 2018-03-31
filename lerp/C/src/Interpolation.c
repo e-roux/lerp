@@ -19,37 +19,18 @@ Reference count: http://edcjones.tripod.com/refcount.html
 
 
 #include <Python.h>
-
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
 #define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API
 #include <numpy/arrayobject.h>
+
 #include "LERP_intern.h"
 #include "NDTable.h"
 #include "Mesh.h"
 
-// #include "interpolation.h"
-// #include "Mesh.h"
-
-// #define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
-#define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
-
-
-#define REFCOUNT(obj) printf("Refcount obj: %zi\n", obj->ob_refcnt);
-
-
-
+#define ARRAYD64(arr) (PyArrayObject*) PyArray_ContiguousFromAny(arr, NPY_DOUBLE, 0, 0)
 #define error_converting(x)  (((x) == -1) && PyErr_Occurred())
-
-
-
-npy_intp evaluate_interpolation(
-    Mesh_t mesh, const npy_double **params, npy_intp params_size,
-    NDTable_InterpMethod_t interp_method,
-    NDTable_ExtrapMethod_t extrap_method,
-    npy_double *result);
-
-static PyObject *interpolation(PyObject *self,
-    PyObject *args, PyObject *kwargs);
+#define START_TIMING clock_t t; t = clock();
+#define END_TIMING t = clock() - t; double time_taken = ((double)t)/CLOCKS_PER_SEC; printf("function took %f seconds to execute \n", time_taken);
 
 
 NDTable_InterpMethod_t get_interp_method(char *method) {
@@ -102,8 +83,9 @@ NDTable_ExtrapMethod_t get_extrap_method(char *method) {
 
 static PyObject *interpolation(PyObject *NPY_UNUSED(self),
                                PyObject *args,
-                               PyObject *kwdict)
+                               PyObject *kwdict) 
 {
+
     /**************************************************
 
     Parameters
@@ -213,7 +195,7 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
         }
 
     }
-//    Py_DECREF(targets);
+    //    Py_DECREF(targets);
 
     // mesh and targets must have the same shape.
     if(mytargets->ndim != table->ndim) {
@@ -237,29 +219,74 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
        NPY_BEGIN_THREADS_THRESHOLDED(result_array_size);
   
         // START_TIMING;
+    
+        // for(i = 0; i < params_size; i++) {
+        //     // set array of parameter in each direction
+        //     for(j = 0; j < mesh->ndim; j++) {
+        //         // Find index and weights
+        //         // NDTable_find_index(params[j][i], mesh->shape[j], mesh->coords[j],
+        //         //                    &index[j], &weigths[j]);
+
+        //         // index[j] = binary_search_with_guess(params[j][i], mesh->coords[j],
+        //         //                                     mesh->shape[j], index[j]);
+
+        //         _cache = binary_search_with_guess(params[j][i], mesh->coords[j],
+        //                                           mesh->shape[j], _cache);
+        //         index[j] = _cache;
+
+        //         weigths[j] = (params[j][_cache] - mesh->coords[j][_cache]) /
+        //                      (mesh->coords[j][_cache+1] - mesh->coords[j][_cache]);
+        //     }
+        //     npy_intp status = NDT_eval_internal(mesh, weigths, index, nsubs, 0, interp_method,
+        //                                     extrap_method, &result[i], derivatives);
+
+        //     if(status != NDTABLE_INTERPSTATUS_OK) {
+        //         return -1;
+        //     }
+        // }
+
         // Iteration over each points
         for(i = 0; i < result_array_size; i++) {
 
-            // search index for interpolation and calculate weight
+            // for each point, iterate over each dimension
+            // search index for interpolation and calculate weight.
             for(j = 0; j < table->ndim; j++) {
                 // dx = (const npy_double *)PyArray_DATA(mytargets->coords[j]);
 
-                _cache = binary_search_with_guess(params[j][i], 
+                // _cache will serve for next iteration as start value
+                _cache = binary_search_with_guess(params[j][i],
                                                   table->coords[j],
                                                   table->shape[j],
                                                   _cache);
-                index[j] = _cache;
 
-                weigths[j] = (params[j][_cache] - table->coords[j][_cache]) /
-                             (table->coords[j][_cache+1] - 
-                              table->coords[j][_cache]);
-                // weigths[j] = 0.5;
-                // printf("%ld ", weigths[j]);
+                /* Handle keys outside of the arr range first */
+                if(_cache == -1) {
+                    _cache = 0;
+                 }
+                else if(_cache == table->shape[j]) {
+                    _cache = table->shape[j] - 1;
+                }
+
+                index[j] = _cache;
+                weigths[j] = (params[j][i] - table->coords[j][_cache]) /
+                             (table->coords[j][_cache+1] - table->coords[j][_cache]);
+
+            // printf("%f between %f and %f, weight: %f\n", params[j][i],
+            //               table->coords[j][_cache],
+            //               table->coords[j][_cache+1],
+            //               weigths[j]);
             }
+            // PyObject_Print(PyList_GetItem(targets, 0), stdout, 0);
+            #if DEBUG == 1
+            printf("****************************************\n");
+            #endif
+
             npy_intp status = NDT_eval_internal(
                 table, weigths, index, nsubs, 0,
                 interpmethod, extrapmethod, &result_data[i]);
  
+            // result_data
+
             if(status != NDTABLE_INTERPSTATUS_OK) {
                 PyErr_Format(PyExc_ValueError,
                     "Error %d occured in fancy_algorithm", status);
@@ -276,16 +303,14 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
     **************************************************/
     ret = Py_BuildValue("O", (PyObject *) result_array);
 
-    // for (npy_intp j=0; j < mytargets->ndim; j++) {
-    //    Py_XDECREF(mytargets->coords[j]);
-    // }
-
     out:
        // Py_DECREF(result_array);
         return ret;
     fail:
         return NULL;        
 }
+
+
 
 static PyMethodDef interpolation_methods[] = {
     {"interpolation", (PyCFunction) interpolation, METH_VARARGS | METH_KEYWORDS,

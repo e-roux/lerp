@@ -17,6 +17,7 @@ Reference count: http://edcjones.tripod.com/refcount.html
 
 // #define NPY_ALLOW_THREADS 1
 
+#include <Python.h>
 
 #define NO_IMPORT_ARRAY
 #define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API

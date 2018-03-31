@@ -38,7 +38,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS 1
 #endif
-
+	
 
 #ifndef NAN
 static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
@@ -54,18 +54,30 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 
 
 /**
-Prototype of an interpolation function
 
-@param  table			[in]		table handle
-@param  weight				[in]		weights for the interpolation (normalized)
-@param  subs			[in]		subscripts of the left sample point
-@param  nsubs			[in,out]	subscripts of the right (next) sample point
-@param  dim				[in]		index of the current dimension
-@param  interp_method	[in]		index of the current dimension
-@param  extrap_method	[in]		index of the current dimension
-@param  result			[out]		interpolated result
+Parameters
+----------
 
-@return status code
+table			:	Mesh_h
+					Table handle
+weight			:	npy_double
+					Weights for the interpolation (normalized)
+subs    		:   npy_double
+					Subscripts of the left sample point
+nsubs			:   npy_double
+					Subscripts of the right (next) sample point
+dim				:	npy_intp
+					Index of the current dimension
+interp_method	:	NDTable_InterpMethod_t
+					Interpolation method
+extrap_method	:	NDTable_ExtrapMethod_t
+					Extrapolation method
+result			: 	npy_double
+					interpolated result
+
+Returns
+-------
+status code
 */
 npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
@@ -76,14 +88,18 @@ npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 	npy_intp index, i, k = 1;
 	interp_fun func;
 
+
 	// check arguments
-	if (weigths == NULL || subs == NULL || nsubs == NULL || 
-		result == NULL ) {
+	if (weigths == NULL || subs == NULL ||
+		nsubs == NULL ||  result == NULL ) {
 		return -1;
 	}
 
-	if (dim >= table->ndim) {
+	#if DEBUG == 1
+	printf("Dans NDT_eval_internal, dim =: %li/%li\n", dim, table->ndim);
+	#endif
 
+	if (dim >= table->ndim) {
 		index = 0;
 
 		for(i = table->ndim-1; i >= 0; i--) {
@@ -92,12 +108,20 @@ npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 		}
 
 		*result = table->data[index];
+		
+		#if DEBUG == 1
+		printf("dim >= table->ndim : %f\n",(double) *result);
+		#endif
+
 		return 0;
 	}
-
+	#if DEBUG == 1
+	printf("Dans NDT_eval_internal, continuing...\n");
+	#endif
 	// printf("Interpolation method %i\n", interp_method);
 
 	// find the right function:
+	// If table 
 	if(table->shape[dim] < 2) {
 		func = interp_hold;
 	} else if (weigths[dim] < 0.0 || weigths[dim] > 1.0) {
@@ -135,7 +159,8 @@ npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 
 static npy_intp interp_hold(const Mesh_h table, const npy_double *weight, const npy_intp *subs,
 							npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method,
-							NDTable_ExtrapMethod_t extrap_method, npy_double *result) {
+							NDTable_ExtrapMethod_t extrap_method, npy_double *result)
+{
 	nsubs[dim] = subs[dim]; // always take the left sample value
 
 	return NDT_eval_internal(table, weight, subs, nsubs, dim + 1, interp_method, extrap_method, result);
@@ -143,7 +168,8 @@ static npy_intp interp_hold(const Mesh_h table, const npy_double *weight, const 
 
 static npy_intp interp_nearest(const Mesh_h table, const npy_double *weight, const npy_intp *subs,
 							   npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method,
-							   NDTable_ExtrapMethod_t extrap_method, npy_double *result) {
+							   NDTable_ExtrapMethod_t extrap_method, npy_double *result)
+{
 	npy_intp err;
 	nsubs[dim] = weight[dim] < 0.5 ? subs[dim] : subs[dim] + 1;
 
@@ -173,10 +199,18 @@ static npy_intp interp_linear(const Mesh_h table, const npy_double *weight,
 	// get the left value
 	nsubs[dim] = subs[dim];
 
+
+	#if DEBUG == 1
+	printf("Dans interp_linear, dim =: %li\n", dim);
+	#endif
+
 	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1, 
 								 interp_method, extrap_method,
 								 &a)) != 0) {
-		return err;
+			#if DEBUG == 1
+			printf("Dans interp_linear (1)), dim =: %li\n", dim);
+			#endif
+			return err;
 	}
 
 	// get the right value
@@ -185,17 +219,29 @@ static npy_intp interp_linear(const Mesh_h table, const npy_double *weight,
 	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
 								 interp_method, extrap_method,
 								 &b)) != 0) {
-		return err;
+			#if DEBUG == 1
+			printf("Dans interp_linear (1)), dim =: %li\n", dim);
+			#endif
+			return err;
 	}
 
-	// if any of the values is not finite return NAN
-	if (npy_isnan(a) || !npy_isnan(b)) {
-		*result = NAN;
+	// if any of the values is finite return NAN
+	if (npy_isnan(a) || npy_isnan(b)) {
+			#if DEBUG == 1
+			printf("Dans interp_linear (NaN)), dim =: %li, a=%f, b=%f\n", dim, a, b);
+			#endif
+			*result = NAN;
 		return 0;
 	}
 
+	#if DEBUG == 1
+	printf("Dans interp_linear (Finish)), dim =: %li\n", dim);
+	#endif
 	// calculate the interpolated value
 	*result = (1 - weight[dim]) * a + weight[dim] * b;
+
+
+
 
 	return 0;
 }
@@ -203,7 +249,8 @@ static npy_intp interp_linear(const Mesh_h table, const npy_double *weight,
 static void cubic_hermite_spline(const npy_double x0, const npy_double x1,
 								 const npy_double y0, const npy_double y1,
 								 const npy_double weight, const npy_double c[4],
-								 npy_double *result) {
+								 npy_double *result)
+{
 
 	npy_double v;
 
@@ -222,7 +269,8 @@ static npy_intp interp_akima(const Mesh_h table, const npy_double *weight,
 							 const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							 NDTable_InterpMethod_t interp_method,
 							 NDTable_ExtrapMethod_t extrap_method,
-							 npy_double *result) {
+							 npy_double *result) 
+{
 
 	npy_double x[6] = { 0, 0, 0, 0, 0, 0};
 	npy_double y[6] = { 0, 0, 0, 0, 0, 0};
@@ -318,8 +366,8 @@ static npy_intp interp_fritsch_butland(const Mesh_h table, const npy_double *wei
 									   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 									   NDTable_InterpMethod_t interp_method,
 									   NDTable_ExtrapMethod_t extrap_method,
-									   npy_double *result) {
-
+									   npy_double *result)
+{
 	npy_double x [4] = { 0, 0, 0, 0 };
 	npy_double y [4] = { 0, 0, 0, 0 };
 	npy_double dx[3] = { 0, 0, 0 };
@@ -396,8 +444,8 @@ static npy_intp interp_steffen(const Mesh_h table, const npy_double *weight,
 							   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 							   NDTable_InterpMethod_t interp_method,
 							   NDTable_ExtrapMethod_t extrap_method,
-							   npy_double *result) {
-
+							   npy_double *result)
+{
 	npy_double x [4] = { 0, 0, 0, 0 };
 	npy_double y [4] = { 0, 0, 0, 0 };
 	npy_double dx[3] = { 0, 0, 0 };
@@ -535,9 +583,9 @@ static npy_intp extrap_linear(const Mesh_h table, const npy_double *weigths,
 	// calculate the extrapolated value
 	*result = (1 - weigths[dim]) * a + weigths[dim] * b;
 
+	#if DEBUG == 1
+	printf("Dans extrap_linear : %f\n", *result);
+	#endif
+
 	return 0;
 }
-
-
-
-

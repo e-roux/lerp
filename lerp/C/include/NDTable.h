@@ -35,8 +35,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // #include <stdio.h>
 #include <numpy/arrayobject.h>
 #include <structmember.h>
-// #include <time.h>
+#include "Mesh.h"
 
+#define DEBUG 0
 
 
 #ifndef NDTABLE_H_
@@ -46,31 +47,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
-
-#define START_TIMING clock_t t; t = clock();
-#define END_TIMING t = clock() - t; double time_taken = ((double)t)/CLOCKS_PER_SEC; printf("function took %f seconds to execute \n", time_taken);
-
-// #define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
-
-
-/* Array attributes */
-typedef struct {
-	npy_intp 	shape[NPY_MAXDIMS]; // Array of data array dimensions.
-	npy_intp	ndim;			    // Number of array dimensions.
-	npy_intp	size;			    // Number of elements in the array.
-	npy_intp    itemsize;		    // Length of one array element in bytes.
-	npy_double  *data;			    // Buffer object pointing to the start
-								// of the array’s data.
-	npy_double  *coords[NPY_MAXDIMS]; //!< array of pointers to the scale values
-	// npy_intp    (*interpmethod)(npy_intp);		    // Function for interpolation
-
-} Mesh_t;
-
-
-typedef Mesh_t * Mesh_h;
-
-
-Mesh_h Mesh_FromXarray(PyObject *mesh);
 
 /*! Interpolation methods */
 typedef enum {
@@ -114,7 +90,6 @@ typedef enum {
 	NDTABLE_INTERPSTATUS_OUTOFBOUNS      = -1,
     NDTABLE_INTERPSTATUS_OK              =  0
 } NDTable_InterpolationStatus;
-
 
 
 npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
