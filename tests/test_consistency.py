@@ -2,7 +2,7 @@
 import numpy as np
 import xarray as xr
 from lerp import Mesh
-
+import sys
 
 def random_sort(arr):
     for i in range(arr.ndim):
@@ -21,12 +21,24 @@ m4d = xr.DataArray(data=random_sort(
 mesh4d = Mesh(m4d)
 
 
+# def test_consistency_at_breakpoints():
+mymesh = mesh4d  # [2:, :, :]
+for _ix, _x in enumerate(mymesh.x.values):
+    for _iy, _y in enumerate(mymesh.y.values):
+        for _iz, _z in enumerate(mymesh.z.values):
+            # print(f"{_ix+1}/{_iy+1}/{_iz+1}",
+            #       1 + _iz + (_iy + _ix * len(mymesh.y)) * len(mymesh.z), "/", mymesh.data.size,
+            #       "-", sys.getrefcount(mymesh), mymesh(_x, _y, _z),
+            #       mymesh[_ix, _iy, _iz].values)
+            mymesh(_x, _y, _z)
+
+
 def test_consistency_at_breakpoints():
     mymesh = mesh4d  # [2:, :, :]
     for _ix, _x in enumerate(mymesh.x.values):
         for _iy, _y in enumerate(mymesh.y.values):
             for _iz, _z in enumerate(mymesh.z.values):
-                assert mymesh[_ix, _iy, _iz].values == mymesh(_x, _y, _z)
+                assert mymesh[_ix, _iy, _iz].values == mymesh(_x, _y, _z)[0]
 
 
 def test_simple():
@@ -38,19 +50,3 @@ def test_simple():
     res = m3d.interpolation([1.2, 5.6, 6], [645] * 3)
 
     assert res[0] == 0.1406002726703582
-
-
-# pytest.fail("not configu")
-
-# with pytest.raises(AssertionError, message="Expecting ZeroDivisionError"):
-#    True
-# simple_check(mymesh)
-# t1 = clock()
-# t2 = clock()
-# print(f"Test ok, performed in {t2 - t1}s")
-# t3 = clock()
-# mymesh(*[np.ravel(list(repeat(mymesh.coords[elt].values,
-#                              reduce(mul, [len(mymesh[_s])
-#        for _s in set(mymesh.dims) - set(elt)])))) for elt in mymesh.dims])
-# t4 = clock()
-# print(f"Test ok, performed in {t4 - t3}s")

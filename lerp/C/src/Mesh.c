@@ -34,6 +34,8 @@ Reference count: http://edcjones.tripod.com/refcount.html
 
 #define error_converting(x)  (((x) == -1) && PyErr_Occurred())
 
+#define DEBUG 0
+
 
 PyObject *
 my_interp(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
@@ -250,22 +252,29 @@ Mesh_h Mesh_FromXarray(PyObject *mesh){
         /* TODO: check if is tuple */
         // if (PyTuple_Check(coords_list)) {
             /* PySequence_GetItem INCREFs key. */
-            key = PyTuple_GetItem(coords_list, j);
+        key = PyTuple_GetItem(coords_list, j);
         // }
 
-        // printf("Refcount key: %zi\n", key->ob_refcnt);
+        #if DEBUG == 1
+        printf("Refcount key (1): %zi\n", key->ob_refcnt);
+        #endif
 
-       PyObject *axis = PyObject_GetAttrString(mesh,
+        PyObject *axis = PyObject_GetAttrString(mesh,
             (char *)PyUnicode_AS_DATA(key));
 
-        // printf("Refcount key: %zi\n", key->ob_refcnt);
+        #if DEBUG == 1
+        printf("Refcount key (2): %zi\n", key->ob_refcnt);
+        #endif
 
         PyArrayObject *coords_tmp =  (PyArrayObject*) PyArray_ContiguousFromAny(
             axis, NPY_DOUBLE, 0, 0);
         output->coords[j] = PyArray_DATA(coords_tmp);
 
         Py_DECREF(axis);
-        Py_DECREF(key);
+        #if DEBUG == 1
+        printf("Refcount key (3): %zi\n", key->ob_refcnt);
+        #endif        
+        // Py_DECREF(key);
 
     }
     output->data = PyArray_DATA(array);

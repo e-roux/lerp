@@ -37,8 +37,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <structmember.h>
 #include "Mesh.h"
 
-#define DEBUG 0
-
 
 #ifndef NDTABLE_H_
 #define NDTABLE_H_
@@ -47,6 +45,31 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 extern "C" {
 #endif
 
+
+/*
+Macro for interpolation function definition
+
+Paramters
+---------
+
+table			:	Mesh_h
+					Table handle
+weight			:	npy_double
+					Weights for the interpolation (normalized)
+subs    		:   npy_double
+					Subscripts of the left sample point
+nsubs			:   npy_double
+					Subscripts of the right (next) sample point
+dim				:	npy_intp
+					Index of the current dimension
+interp_method	:	NDTable_InterpMethod_t
+					Interpolation method
+extrap_method	:	NDTable_ExtrapMethod_t
+					Extrapolation method
+result			: 	npy_double
+					interpolated result
+*/
+#define INTERP_PARAMETERS (const Mesh_h, const npy_double *, const npy_intp *, npy_intp *, npy_intp, NDTable_InterpMethod_t, NDTable_ExtrapMethod_t, npy_double *);
 
 /*! Interpolation methods */
 typedef enum {
@@ -68,19 +91,19 @@ typedef enum {
 
 /* Array attributes */
 typedef struct {
-	npy_intp 	shape[NPY_MAXDIMS];   // Array of data array dimensions.
-	npy_intp	ndim;			    // Number of array dimensions.
+	npy_intp 	shape[NPY_MAXDIMS]; 	  // Array of data array dimensions.
+	npy_intp	ndim;			    	 // Number of array dimensions.
 	PyArrayObject  *coords[NPY_MAXDIMS]; //!< array of pointers to the scale values
 } NDTargets_t;
 
 /* Array attributes */
 typedef struct {
-	npy_intp   size;			    // Number of elements in the array.
+	npy_intp   size;				// Number of elements in the array.
 	npy_double *data;			    // Buffer object pointing to the start
 } NDResult_t;
 
 typedef NDTargets_t * NDTargets_h;
-typedef NDResult_t * NDResult_h;
+typedef NDResult_t  * NDResult_h;
 
 /*! Interpolation status codes */
 typedef enum {
@@ -92,22 +115,18 @@ typedef enum {
 } NDTable_InterpolationStatus;
 
 
-npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
+npy_intp NDT_eval_internal INTERP_PARAMETERS;
 
+typedef npy_intp ( *interp_fun ) INTERP_PARAMETERS;
 
-typedef npy_intp(*interp_fun)(const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, 
-						 NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, 
-						 npy_double *value);
-
-// forward declare inter- and extrapolation functions
-static npy_intp interp_hold		      (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp interp_nearest	      (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp interp_linear	      (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp interp_akima		      (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp interp_fritsch_butland (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp interp_steffen         (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp extrap_hold		      (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
-static npy_intp extrap_linear	      (const Mesh_h table, const npy_double *t, const npy_intp *subs, npy_intp *nsubs, npy_intp dim, NDTable_InterpMethod_t interp_method, NDTable_ExtrapMethod_t extrap_method, npy_double *value);
+static npy_intp interp_hold INTERP_PARAMETERS;
+static npy_intp interp_nearest INTERP_PARAMETERS;
+static npy_intp interp_linear INTERP_PARAMETERS;
+static npy_intp interp_akima INTERP_PARAMETERS;
+static npy_intp interp_fritsch_butland INTERP_PARAMETERS;
+static npy_intp interp_steffen INTERP_PARAMETERS;
+static npy_intp extrap_hold INTERP_PARAMETERS;
+static npy_intp extrap_linear INTERP_PARAMETERS;
 
 #ifdef __cplusplus
 }

@@ -18,7 +18,9 @@ print(m3d[3, 4])
 xi = linspace(-1.5,  2 * pi + 1.5, 10)
 
 
-res = m3d([x[3], x[4]], [y[4], y[7]])
+# res = m3d([x[3], x[4]], [y[4], y[7]])
+
+res = m3d(x[3], y[4])
 
 print("*"*30)
 print("* Résultat")

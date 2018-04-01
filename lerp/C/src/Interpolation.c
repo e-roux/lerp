@@ -32,6 +32,8 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #define START_TIMING clock_t t; t = clock();
 #define END_TIMING t = clock() - t; double time_taken = ((double)t)/CLOCKS_PER_SEC; printf("function took %f seconds to execute \n", time_taken);
 
+#define DEBUG 0
+
 
 NDTable_InterpMethod_t get_interp_method(char *method) {
 
@@ -123,6 +125,7 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
 
     const npy_double *dx;
 
+
     /**************************************************
     Set interpolation default to linear
     Set extrapolation default to hold
@@ -141,7 +144,9 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
                                      &interp_method, &extrap_method)){
         return NULL;       
     }
-
+    #if DEBUG == 1
+    printf("Called successful\n");
+    #endif
 
     /**************************************************
     * Check interpolation and extrapolation method
@@ -159,9 +164,14 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
     //                         data , NPY_DOUBLE, 0, 0);
 
     // printf("Refcount array : %zi\n", array);
-
+    #if DEBUG == 1
+    printf("Table creation...\n");
+    #endif
     table = Mesh_FromXarray(mesh); // , *interpmethod, *extrapmethod);
 
+    #if DEBUG == 1
+    printf("... success.\n");
+    #endif
     /**************************************************
     * Build targets and shape plausibility check
         - first build : only accept if all target
@@ -211,7 +221,10 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
     **************************************************/
     // if the dataset is scalar return the value
     if (table->ndim == 0) {
+        // printf("ouais\n");
         result_data = &table->data[0];
+        ret = Py_BuildValue("lf", result_data);
+        goto out;
     }
     else {
         // TODO: add null check
@@ -264,7 +277,7 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
                     _cache = 0;
                  }
                 else if(_cache == table->shape[j]) {
-                    _cache = table->shape[j] - 1;
+                    _cache = table->shape[j] - 2    ;
                 }
 
                 index[j] = _cache;
@@ -301,12 +314,29 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
     /**************************************************
     * Check interpolation and extrapolation method
     **************************************************/
-    ret = Py_BuildValue("O", (PyObject *) result_array);
+
+    if (PyArray_SIZE(result_array) == 1) {
+        // printf("%lf\n", result_data[0]);
+        ret = Py_BuildValue("f", (double) result_data[0]);
+        #if DEBUG == 1
+        printf("RET:\n");
+        PyObject_Print(ret, stdout, 0);
+        printf("\n");
+        #endif        
+    }
+    else{
+        ret = Py_BuildValue("O", (PyObject *) result_array);
+    }
 
     out:
-       // Py_DECREF(result_array);
+        #if DEBUG == 1
+        printf("Clean output\n");
+        #endif
         return ret;
     fail:
+        #if DEBUG == 1
+        printf("Failed\n");
+        #endif
         return NULL;        
 }
 

@@ -51,6 +51,7 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 #define ISFINITE(x) isfinite(x)
 #endif
 
+#define DEBUG 2	
 
 
 /**
@@ -79,13 +80,13 @@ Returns
 -------
 status code
 */
+
 npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 	     				   NDTable_InterpMethod_t interp_method,
 	     				   NDTable_ExtrapMethod_t extrap_method,
 	     				   npy_double *result)
 {
-	npy_intp index, i, k = 1;
 	interp_fun func;
 
 
@@ -100,43 +101,33 @@ npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 	#endif
 
 	if (dim >= table->ndim) {
-		index = 0;
-
-		for(i = table->ndim-1; i >= 0; i--) {
-			index += subs[i] * k;
+		npy_intp index = 0;
+		npy_intp k = 1;
+		for(npy_intp i = table->ndim-1; i >= 0; i--) {
+			index += nsubs[i] * k; 
 			k *= table->shape[i]; // TODO use pre-calculated offsets
-		}
-
-		*result = table->data[index];
-		
-		#if DEBUG == 1
-		printf("dim >= table->ndim : %f\n",(double) *result);
-		#endif
-
+		}	
+		*result =  table->data[index];
 		return 0;
 	}
-	#if DEBUG == 1
-	printf("Dans NDT_eval_internal, continuing...\n");
-	#endif
-	// printf("Interpolation method %i\n", interp_method);
 
 	// find the right function:
-	// If table 
 	if(table->shape[dim] < 2) {
 		func = interp_hold;
 	} else if (weigths[dim] < 0.0 || weigths[dim] > 1.0) {
 		// extrapolate
 		switch (extrap_method) {
-		case NDTABLE_EXTRAP_HOLD:
-			func = extrap_hold;
-			break;
-		case NDTABLE_EXTRAP_LINEAR:
-			switch (interp_method) {
-			case NDTABLE_INTERP_AKIMA:           func = interp_akima;           break;
-			case NDTABLE_INTERP_FRITSCH_BUTLAND: func = interp_fritsch_butland; break;
-			default:                             func = extrap_linear;			break;
-			}
-			break;
+			case NDTABLE_EXTRAP_HOLD:
+				func = extrap_hold;
+				break;
+			case NDTABLE_EXTRAP_LINEAR:
+				switch (interp_method) {
+				case NDTABLE_INTERP_AKIMA:           func = interp_akima;           break;
+				case NDTABLE_INTERP_FRITSCH_BUTLAND: func = interp_fritsch_butland; break;
+				default:                             func = extrap_linear;			break;
+		}
+		break;
+
 		default:
 			printf("Requested value is outside data range");
 			return -1;
@@ -225,9 +216,9 @@ static npy_intp interp_linear(const Mesh_h table, const npy_double *weight,
 			return err;
 	}
 
-	// if any of the values is finite return NAN
+	// if any of the values is not finite return NAN
 	if (npy_isnan(a) || npy_isnan(b)) {
-			#if DEBUG == 1
+			#if DEBUG == 2
 			printf("Dans interp_linear (NaN)), dim =: %li, a=%f, b=%f\n", dim, a, b);
 			#endif
 			*result = NAN;
@@ -261,7 +252,7 @@ static void cubic_hermite_spline(const npy_double x0, const npy_double x1,
 		*result = ((c[0] * v + c[1]) * v + c[2]) * v + c[3];
 	} else { // extrapolate right
 		v = x1 - x0;
-		*result = y1 +   ((3 * c[0] * v + 2 * c[1]) * v + c[2]) * (v * (weight - 1));
+		*result = y1 + ((3 * c[0] * v + 2 * c[1]) * v + c[2]) * (v * (weight - 1));
 	}
 }
 
