@@ -6,7 +6,7 @@ This module delivers utilities to manipulate data meshes
 import os.path
 import pickle
 from collections import namedtuple
-from copy import (copy, deepcopy)
+from copy import deepcopy
 from itertools import islice, product
 from numbers import Number
 import numpy as np
@@ -15,9 +15,10 @@ from scipy.interpolate import dfitpack, fitpack
 import xml.etree.ElementTree as ET
 from lerp.intern import logger, myPlot
 from lerp.core.config import get_option
-from functools import (partial, wraps)
+from functools import partial
 import inspect
 
+# Using abc for practice purpose.
 import abc
 
 axis = namedtuple('axis', ['label', 'unit'])
@@ -88,15 +89,11 @@ class mesh(abc.ABC):
                 ndim = 5
                 break
 
-        cls.ndim = ndim - 1
-        cls.axes = "xyzvw"[:ndim-1]
-
         axs = "xyzvw"[:ndim-1]
 
         cls._options = {
             "extrapolate": True,
-            "step": True,
-            "deepcopy": False
+            "step": True
         }
 
         def get_value(self, axis=None):
@@ -119,54 +116,20 @@ class mesh(abc.ABC):
                              fset=partial(set_value, axis=ax)))
 
         # dynamicaly write special methods
-        def __call__(self, *args, **kwargs):
-            """
-            Interpolate the function.
-
-            Parameters
-            ----------
-            x  : 1D array
-                x-coordinates of the mesh on which to interpolate.
-            y : 1D array
-                y-coordinates of the mesh on which to interpolate.
-
-            Returns
-            -------
-                2D array with shape (len(x), len(y))
-                The interpolated values.
-            """
-            if self.options.step:
-                return self._step(*args, **kwargs)
-            else:
-                if self.options.extrapolate:
-                    return self.extrapolate(*args, **kwargs)
-                else:
-                    return self.interpolate(*args, **kwargs)
-
-        setattr(cls, "__call__", __call__)
-
         setattr(cls, "__neg__",
                 lambda self : self.__class__(**{ax:getattr(self, f"_{ax}")
                                                 for ax in axs},
                                              d=-self.d, label=self.label,
                                              unit=self.unit))
-        for method in ["argmax", "argmin", "unique"]:
-            setattr(cls, method,
-                lambda self, *args, **kwargs : getattr(np, method)(self.d, *args, **kwargs))
 
-            #def unique(self, *args, **kwargs):
-            #    """Return unique element in d."""
-            #    return np.unique(self.d, *args, **kwargs)
+        #        setattr(cls, "__neg__",
 
+        #    def __iter__(self):
+        #        for (i, j), elem in np.ndenumerate(self.d):
+        #            yield (self.x[i], self.y[j], (i, j), elem)
+        # for *i, val in np.ndenumerate(np.random.random(size=(3,3,3))):
+        #    print(i)
 
-    def _step(self, x, *args, **kwargs):
-        """
-        """
-        i = np.searchsorted(self.x, x)
-        condList = [np.in1d(x, self.x), i > 1]
-        choiceList = [i, i - 1]
-        i = np.select(condList, choiceList)
-        return self.d[i]
 
     @property
     def options(self):
@@ -183,92 +146,15 @@ class mesh(abc.ABC):
                                ('deprecated' in repr(getattr(self, f))))],
                       key=lambda x: x.lower())
 
-    def __eq__(self, other):
-
-        if all((np.all(getattr(self, _axis) == getattr(other, _axis))
-                for _axis in self.axes)):
-            if self.label != other.label:
-                print(f"Labels are differents : {self.label} / {other.label}")
-            if self.unit != other.unit:
-                print("Units are differents : {self.unit} / {other.unit}")
-            return True
-        else:
-            return False
-
     def __len__(self):
         return self._d.size
 
     def __sub__(self, obj):
         return self.__add__(-obj)
 
-    def _repr_html_(self):
-        max_rows = get_option("display.max_rows")
-
-        root = ET.Element('div')
-        pre = ET.SubElement(root, 'p')
-        ET.SubElement(pre, 'code').text = f"{self.__class__.__name__ }: "
-        ET.SubElement(pre, 'b').text = self.label or "Label"
-        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
-        ET.SubElement(pre, 'br')
-
-        for _a in self.axes:
-            axis = getattr(self, _a)
-            root.append(ET.fromstring(axis._repr_html_()))
-
-        return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
-
-    def apply(self, func, axis="d", inplace=False):
-        """Apply a function along axis
-
-        Parameters
-        ----------
-        func :   function
-        axis:    string
-        inplace: boolean
-                 True for inplcae mofication
-
-        Returns
-        -------
-        obj if inplace is True
-
-        """
-        axislist = set(self.__dict__.keys()) & {f"_{a}" for a in "xyzvwd"}
-        assert f"_{axis}" in axislist, ValueError(f"{axis} must be ",
-                                            ", ".join(axislist))
-
-        obj = self if inplace else copy(self)
-
-        # Apply function
-        setattr(obj, axis,
-                np.apply_along_axis(func, 0, getattr(self, axis))
-                )
-
-        if not inplace:
-            return obj
-
-    def copy(self):
-        return deepcopy(self) if self.options.deepcopy else copy(self)
-
-    @_axisnormalize
-    def diff(self, axis=0, n=1):
-        """
-        """
-        out = copy(self)
-        setattr(out, "xyzvw"[axis],
-                getattr(out, "xyzvw"[axis])[:-n])
-        out.d = np.diff(out.d, n=n, axis=axis)
-        return out
-
-    def dropnan(self):
-        """Drop NaN values and return new mesh2d."""
-        axislist = set(self.__dict__.keys()) & {f"_{a}" for a in "xyzvw"}
-        return self[~np.isnan(self.x)]
-
-    @property
     def shape(self):
         """Get object shape."""
-        mylen = (len(getattr(self, _a)) for _a in self.axes)
-        return tuple(mylen)
+        return self.d.shape
 
     def read_pickle(self, fileName=None):
         """Read from pickle."""
@@ -283,15 +169,6 @@ class mesh(abc.ABC):
         except OSError:
             raise FileNotFoundError(f"Please check your path, "
                                     f"{fileName} not found.")
-
-    def reshape(self, sort=True):
-        """
-        """
-        assert all(self.shape), \
-            ValueError(f"One axis has at least dim zero")
-
-        self.d = np.reshape(self.d, self.shape)
-        self.sort()
 
     def to_pickle(self, fileName=None):
         """Simple export to pickle."""
@@ -324,14 +201,6 @@ class mesh(abc.ABC):
             return tuple(_res)
         return max(self.d)
 
-    def mean(self, *args, **kwargs):
-        """Mean calculation."""
-        return self.d.mean(*args, **kwargs)
-
-    def median(self, *args, **kwargs):
-        """Median calculation."""
-        return self.d.median(*args, **kwargs)
-
     def min(self, argwhere=False):
         """Returns the min value of the d array.
 
@@ -353,93 +222,30 @@ class mesh(abc.ABC):
             return tuple(_res)
         return min(self.d)
 
-    # TODO : check dtype
-    @_axisnormalize
-    def push(self, s=None, d=None, axis=0, inplace=False):
-        """
-        # s: support point ; d = data (np.array de dimension n * 1)
-        """
-        _axe = getattr(self, self.axes[axis])
-        w2add = np.zeros(len(_axe))
-        w2add.put(np.arange(len(d)), d)
+    def mean(self, *args, **kwargs):
+        """Mean calculation."""
+        return self.d.mean(*args, **kwargs)
 
-        if s not in _axe:
-            at = np.searchsorted(_axe, s)
-            setattr(self, self.axes[axis],
-                    _axe.insert(at, s))
+    def median(self, *args, **kwargs):
+        """Median calculation."""
+        return self.d.median(*args, **kwargs)
 
-            if self.d.size > 0:
-                self.d = np.insert(self.d, at, w2add, axis=axis)
-            else:
-                self.d = [np.array(w2add)]
-        else:
-            print("push: Value already defined at {}".format(s))
+    def unique(self, *args, **kwargs):
+        """Return unique element in d."""
+        return np.unique(self.d, *args, **kwargs)
 
-        self.reshape()
+    def copy(self, axes=None):
+        from copy import copy
+        #ndim = self.d.ndim
+        #axs = set(axes) & set("xyzvw"[:ndim])
 
-
-    @_axisnormalize
-    def append(self, arr, values, axis=None, inplace=False):
-        """
-        Append values to a mesh.
-
-        Parameters
-        ----------
-        arr : array_like
-            Values a.
-        values : array_like
-            These values are appended to a copy of `arr`.  It must be of the
-            correct shape (the same shape as `arr`, excluding `axis`).  If
-            `axis` is not specified, `values` can be any shape and will be
-            flattened before use.
-        axis : int, optional
-            The axis along which `values` are appended.  If `axis` is not
-            given, both `arr` and `values` are flattened before use.
-        Returns
-        -------
-        append : ndarray
-            A copy of `arr` with `values` appended to `axis`.  Note that
-            `append` does not occur in-place: a new array is allocated and
-            filled.  If `axis` is None, `out` is a flattened array.
-        """
-        _axe = getattr(self, self.axes[axis])
-        w2add = np.zeros(len(_axe))
-        w2add.put(np.arange(len(d)), d)
-
-        if s not in _axe:
-            at = np.searchsorted(_axe, s)
-            setattr(self, self.axes[axis],
-                    _axe.insert(at, s))
-
-            if self.d.size > 0:
-                self.d = np.insert(self.d, at, w2add, axis=axis)
-            else:
-                self.d = [np.array(w2add)]
-        else:
-            print("push: Value already defined at {}".format(s))
-
-        self.reshape()
-
-    def sort(self):
-        """Sort the grid, ascending values."""
-        for _i, _a in enumerate(self.axes):
-            order = [slice(None)] * self.ndim
-            axis = getattr(self, _a)
-            if not np.all(axis[1:] >= axis[:-1]):
-                _o = np.argsort(axis)
-                setattr(self, _a, axis[_o])
-                order[_i] = _o
-                self.d = self.d[order]
-
-    @property
-    def T(self):
-        """Transpose mesh."""
-        obj = copy(self)
-        for axis, axis_t in zip(self.axes, self.axes[::-1]):
-            setattr(obj, axis,
-                    getattr(self, axis_t))
-        obj.d = self.d.T
-        return obj
+        return copy(self)
+        # ndim = self.d.ndim
+        # axs = "xyzvw"[:ndim]
+        # return self.__class__(**{ax:getattr(self, f"_{ax}")
+        #                                for ax in axs},
+        #                             d=self.d, label=self.label,
+        #                             unit=self.unit))
 
 
 class BreakPoints(np.ndarray):
@@ -755,10 +561,16 @@ class mesh2d(mesh, ndim=2):
             self._x = mesh1d(x, label=x_label, unit=x_unit)
             self._d = np.array(d).ravel()
 
-        self.sort()
+        self._sort()
 
         self.label = label
         self.unit = unit
+
+    @property
+    def __dict_raw__(self):
+        return {_k: self.__dict__[_k] for _k in
+                (set(self.__dict__.keys()) -
+                 set(['_x', '_y', '_z', '_v', '_w', '_d', '_steps']))}
 
     def __add__(self, obj):
         """
@@ -891,6 +703,17 @@ class mesh2d(mesh, ndim=2):
     def __iter__(self):
         return zip(self.x, self.d)
 
+    def __eq__(self, other):
+        if np.all(self._x == other._x) and \
+                np.all(self._d == other._d):
+            return True
+        else:
+            return False
+
+        #   Warning :  __next__ and __iter__ is a bad practice
+        #   Iterables are not iterators
+        #   def __next__(self):
+
     def __repr__(self):
         return f"x = {self.x.__repr__()}\nd = {self.d.__repr__()}"
 
@@ -945,6 +768,26 @@ class mesh2d(mesh, ndim=2):
         o += "\t".join(map(str, self.d))
         return o
 
+    def _sort(self, reverse=False):
+        """Sort the grid, ascending x values (default).
+
+        Parameters
+        ----------
+        reverse: boolean
+            Descending order values if True
+        """
+        if self.x is not None:
+            o = self.x.argsort()
+            self.x, self.d = self.x[o], self.d[o]
+
+    def __call__(self, x, *args, **kwargs):
+        """Best results with numpy
+        """
+        if self.options.extrapolate:
+            return self.extrapolate(x=x, *args, **kwargs)
+        else:
+            return self.interpolate(x=x, *args, **kwargs)
+
     def push(self, x=None, d=None):
         """Pushes an element/array to the array
 
@@ -984,7 +827,51 @@ class mesh2d(mesh, ndim=2):
             except:
                 print("All elements already in orginal array")
 
-        self.sort()
+        self._sort()
+
+    def apply(self, f, axis="d", inplace=False):
+        """Apply a function along axis
+
+        Parameters
+        ----------
+        f : function
+        axis: string
+            "x" or "d"
+        inplace: boolean
+            True if you want the mesh1d to be modified inplace
+
+        Returns
+        -------
+        Nothing or mesh1d
+            Depends if inplace is set to False or True
+
+        """
+        if axis == "d":
+            if inplace:
+                self.d.apply(f, inplace)
+            else:
+                return self.__class__(x=self.x, d=self.d.apply(f),
+                                      **self.__dict_raw__)
+
+        elif axis == "x":
+            if inplace:
+                self.x.apply(f, inplace)
+            else:
+                return self.__class__(x=self.x.apply(f), d=self.d,
+                                      **self.__dict_raw__)
+        else:
+            print("apply used on non existing axis")
+
+    def diff(self, n=1):
+        """
+        Checked
+        """
+        return self.__class__(self.x[:-n],
+                              np.diff(self.d, n=n))
+
+    def dropnan(self):
+        """Drop NaN values and return new mesh2d."""
+        return self[~np.isnan(self.x)]
 
     def interpolate(self, x, assume_sorted=False, *args, **kwargs):
         """Purpose of this method is to return a linear interpolation
@@ -1013,7 +900,7 @@ class mesh2d(mesh, ndim=2):
         """
         # Code from scipy.interpolate.interp1d
         if not assume_sorted:
-            self.sort()
+            self._sort()
 
         try:
             if isinstance(x, (np.ndarray, list, range)):
@@ -1029,15 +916,23 @@ class mesh2d(mesh, ndim=2):
     def steps(self):
         from functools import partial
 
-        _steps = copy(self)
-        # otherise options will be shared
-        _steps._options = deepcopy(self._options)
+        def step(self, x, **kwargs):
+            """
+            """
 
-        _steps.options.step = True
-        # Patch steps call
-        _steps.plot = partial(self.plot, step=True)
-        print(_steps.options.step)
-        return _steps
+            i = np.searchsorted(self.x, x)
+            condList = [np.in1d(x, self.x), i > 1]
+            choiceList = [i, i - 1]
+            i = np.select(condList, choiceList)
+
+            return self.d[i]
+
+        self._steps = deepcopy(self)
+        # Warning : monkey patching
+        self._steps.__call__ = step
+        self._steps.plot = partial(self.plot, step=True)
+
+        return self._steps
 
     def extrapolate(self, x, *args, **kwargs):
         """np.interp function with linear extrapolation
@@ -1051,8 +946,7 @@ class mesh2d(mesh, ndim=2):
                 res.append(self._extrapolate(elt, **kwargs))
             res = tuple(res)
         else:
-            # If iterable
-            if "__iter__" in dir(x):
+            if isinstance(x, (np.ndarray, list, range)):
                 res = []
                 for elt in x:
                     res.append(self._extrapolate(elt, **kwargs))
@@ -1151,7 +1045,7 @@ class mesh2d(mesh, ndim=2):
 
     def resample(self, x):
         return self.__class__(x=mesh1d(x, **self.x.__dict__),
-                              d=self(x))
+                              d=self(x), **self.__dict_raw__)
 
     def to_clipboard(self, transpose=False, decimal=","):
         def set_clipboard(text):
@@ -1308,6 +1202,39 @@ class mesh3d(mesh, ndim=3):
             logger.warning("Multiplyng {} to {} failed".format(
                 obj.__class__.__name__,
                 self.__class__.__name__))
+
+    def __call__(self, x=None, y=None, *args, **kwargs):
+        """Interpolate the function.
+
+        Parameters
+        ----------
+        x : 1D array
+            x-coordinates of the mesh on which to interpolate.
+        y : 1D array
+            y-coordinates of the mesh on which to interpolate.
+
+        Returns
+        -------
+            2D array with shape (len(x), len(y))
+            The interpolated values.
+
+        """
+        if self.options.extrapolate:
+            return self.extrapolate(x=x, y=y, *args, **kwargs)
+        else:
+            return self.interpolate(x=x, y=y, *args, **kwargs)
+
+    def __eq__(self, other):
+        if self._x == other._x and \
+                        self._y == other._y and \
+                np.all(self.d == other.d):
+            if self.label != other.label:
+                print(f"Labels are differents : {self.label} / {other.label}")
+            if self.unit != other.unit:
+                print("Units are differents : {self.unit} / {other.unit}")
+            return True
+        else:
+            return False
 
     def __iter__(self):
         """
@@ -1487,6 +1414,22 @@ class mesh3d(mesh, ndim=3):
             res += "\n"
         return res
 
+    def apply(self, f, inplace=False):
+        if inplace is False:
+            X = self.x.copy()
+            Y = self.y.copy()
+            W = self.d.copy()
+        else:
+            X = self.x
+            Y = self.y
+            W = self.d
+
+        for d, v in np.ndenumerate(W):
+            W[d] = f(W[d])
+
+        if inplace is False:
+            return mesh3d(X, Y, W, self.label, self.unit)
+
     def pop(self, axis=0):
         axisLenght = np.ma.size(self.d, axis=axis)
         if axisLenght > 1:
@@ -1557,7 +1500,7 @@ class mesh3d(mesh, ndim=3):
                                      for _x, _y in product(x, y)],
                                   label=self.label, unit=self.unit)
 
-    def extrapolate(self, x=None, y=None):
+    def extrapolate(self, x, y):
         """"""
         isxN = isinstance(x, Number)
         isyN = isinstance(y, Number)
@@ -1649,11 +1592,74 @@ class mesh3d(mesh, ndim=3):
             print("Save file as " + filename)
             plt.savefig(filename, bbox_inches='tight')
 
+    # TODO : check dtype
+    def push(self, s=None, d=None, axis=0, inplace=False):
+        # s: support point ; d = data (np.array de dimension n * 1)
+
+        _axe = self.y if axis == 1 else self.x
+        w2add = np.zeros((len(self.x if axis == 1 else self.y)))
+        w2add.put(np.arange(len(d)), d)
+
+        if s not in _axe:
+            at = np.searchsorted(_axe, s)
+            if axis == 1:
+                self.y = _axe.insert(at, s)
+            else:
+                self.x = _axe.insert(at, s)
+
+            if self.d.size > 0:
+                self.d = np.insert(self.d, at, w2add, axis=axis)
+            else:
+                self.d = [np.array(w2add)]
+        else:
+            print("push: Value already defined at {}".format(s))
+
+        self.reshape()
+
     def read_clipboard(self):
 
         import pandas as pd
         s = pd.read_clipboard(index_col=0, decimal=",")
         self.from_pandas(s)
+
+    def reshape(self, sort=True):
+        if len(self.x) > 0:
+            self.d = np.reshape(self.d, (len(self.x), -1))
+        if sort is True:
+            self.sort()
+
+    def sort(self):
+        # Code from interp2d
+        if not np.all(self._x[1:] >= self._x[:-1]):
+            j = np.argsort(self._x)
+            self._x = self._x[j]
+            self.d = self.d[j, :]
+        if not np.all(self._y[1:] >= self._y[:-1]):
+            j = np.argsort(self._y)
+            self._y = self._y[j]
+            self.d = self.d[:, j]
+
+    def to_gpt(self, fileName=None):
+        for _y in self.y:
+            print("#", str(_y))
+            for _x in self.x:
+                print(_x, self(_x, _y))
+            print("e")
+
+    @property
+    def T(self):
+        return self.__class__(x=self._y, y=self._x, d=self.d.T,
+                              label=self.label, unit=self.unit)
+
+    # Important : non sort!
+    def diff(self, axis=0, n=1):
+        return self.__class__(x=np.diff(self._x, n=n)
+                              if axis == 0 else self._x,
+                              y=np.diff(self._y, n=n)
+                              if axis == 1 else self._y,
+                              d=np.diff(self.d, axis=axis, n=n),
+                              label=self.label, unit=self.unit,
+                              sort=False)
 
     def interparray(self, x, y):
         _, tx, _, ty, c, _, _ = dfitpack.regrid_smth(self._x, self._y,
@@ -1693,10 +1699,27 @@ class mesh4d(mesh, ndim=4):
 
         self.reshape()
 
+    @property
+    def shape(self):
+        return self.d.shape
+
     def __add__(self, other):
         return self.__class__(x=self._x, y=self._y, z=self._z,
                               d=self.d + other, label=self.label,
                               unit=self.unit, **self.options)
+
+    def __eq__(self, other):
+        if self._x == other._x and \
+                        self._y == other._y and \
+                        self._z == other._z and \
+                np.all(self.d == other.d):
+            if self.label != other.label:
+                print(f"Labels are differents : {self.label} / {other.label}")
+            if self.unit != other.unit:
+                print("Units are differents : {self.unit} / {other.unit}")
+            return True
+        else:
+            return False
 
     def __getitem__(self, sl):
         """
@@ -1762,13 +1785,44 @@ class mesh4d(mesh, ndim=4):
         else:
             return self.d[slx, sly, slz]
 
-    def push(self, s=None, d=None, axis=0):
+    def __call__(self, x=None, y=None, z=None, *args, **kwargs):
+        """Best results with numpy
         """
+        if self.options.extrapolate:
+            logger.warning(f"Extrapolation not implented in "
+                           f" {self.__class__.__name__}")
+            return self.interpolate(x=x, y=y, z=z)  # , *args, **kwargs)
+        else:
+            return self.interpolate(x=x, y=y, z=z)  #, *args, **kwargs)
+
+    def reshape(self):
+        if len(self._x) > 0:
+            self.d = np.reshape(self.d,
+                                (len(self._x), len(self._y), len(self._z)))
+        self.sort()
+
+    def sort(self):
+        # Code from interp2d
+        if not np.all(self._x[1:] >= self._x[:-1]):
+            j = np.argsort(self._x)
+            self._x = self._x[j]
+            self.d = self.d[j, :, :]
+        if not np.all(self._y[1:] >= self._y[:-1]):
+            j = np.argsort(self._y)
+            self._y = self._y[j]
+            self.d = self.d[:, j, :]
+        if not np.all(self._z[1:] >= self._z[:-1]):
+            j = np.argsort(self._z)
+            self._z = self._z[j]
+            self.d = self.d[:, :, j]
+
+            # s: support point ; d = object curve ou MAP
+
+    def push(self, s=None, d=None, axis=0):
         # TODO : check type
 
         # From the axis number, get the corresponding
         # attribute x,y or z from self
-        """
         wA = "_" + axeConv.get(axis)
         _axis = getattr(self, wA)
         # print(wA, _axis)
@@ -1899,6 +1953,44 @@ class mesh4d(mesh, ndim=4):
         return eval(test[(isxN, isyN, iszN)],
                     {'self': self, 'x': x, 'y': y, 'z': z})
 
+    def _repr_html_(self):
+        root = ET.Element('div')
+
+        pre = ET.SubElement(root, 'p')
+        ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
+        ET.SubElement(pre, 'b').text = self.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+        ET.SubElement(pre, 'br')
+
+        root.append(ET.fromstring(self.x._repr_html_()))
+        root.append(ET.fromstring(self.y._repr_html_()))
+        root.append(ET.fromstring(self.z._repr_html_()))
+
+        return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
+
+    def read_pickle(self, fileName=None):
+        try:
+            fileName = os.path.normpath(fileName)
+            os.path.exists(fileName)
+            with open(fileName, 'rb') as f:
+                # The protocol version used is detected automatically,
+                # so we do not have to specify it.
+                data = pickle.load(f)
+            return data
+        except:
+            raise
+            # raise FileNotFoundError("Please check your path, {} not found".\
+            # format(fileName))
+
+    def to_pickle(self, fileName=None):
+        try:
+            fileName = os.path.normpath(fileName)
+            with open(fileName, 'wb') as f:
+                pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        except:
+            raise FileNotFoundError(f"Please check your path, \
+                {fileName} not found")
+
 
 class mesh5d(mesh, ndim=5):
     """
@@ -1929,8 +2021,75 @@ class mesh5d(mesh, ndim=5):
 
         self.reshape()
 
+    @property
+    def shape(self):
+        return self.d.shape
+
     def __add__(self, other):
         return self.__class__(x=self._x, y=self._y, z=self._z,
                               v=self._v,
                               d=self.d + other, label=self.label,
                               unit=self.unit, **self.options)
+
+    def reshape(self):
+        if len(self._x) > 0:
+            self.d = np.reshape(self.d,
+                                (len(self._x), len(self._y),
+                                 len(self._z), len(self._v)))
+        self.sort()
+
+    def sort(self):
+        # Code from interp2d
+        if not np.all(self._x[1:] >= self._x[:-1]):
+            j = np.argsort(self._x)
+            self._x = self._x[j]
+            self.d = self.d[j, :, :]
+        if not np.all(self._y[1:] >= self._y[:-1]):
+            j = np.argsort(self._y)
+            self._y = self._y[j]
+            self.d = self.d[:, j, :]
+        if not np.all(self._z[1:] >= self._z[:-1]):
+            j = np.argsort(self._z)
+            self._z = self._z[j]
+            self.d = self.d[:, :, j]
+        if not np.all(self._v[1:] >= self._v[:-1]):
+            j = np.argsort(self._v)
+            self._v = self._v[j]
+            self.d = self.d[:, :, :, j]
+
+    def _repr_html_(self):
+        root = ET.Element('div')
+        pre = ET.SubElement(root, 'p')
+        ET.SubElement(pre, 'code').text = self.__class__.__name__ + ": "
+        ET.SubElement(pre, 'b').text = self.label or "Label"
+        ET.SubElement(pre, 'span').text = " [{}]".format(self.unit or "unit")
+        ET.SubElement(pre, 'br')
+
+        root.append(ET.fromstring(self.x._repr_html_()))
+        root.append(ET.fromstring(self.y._repr_html_()))
+        root.append(ET.fromstring(self.z._repr_html_()))
+        root.append(ET.fromstring(self.v._repr_html_()))
+
+        return str(ET.tostring(root, encoding='utf-8'), 'utf-8')
+
+    def read_pickle(self, fileName=None):
+        try:
+            fileName = os.path.normpath(fileName)
+            os.path.exists(fileName)
+            with open(fileName, 'rb') as f:
+                # The protocol version used is detected automatically,
+                # so we do not have to specify it.
+                data = pickle.load(f)
+            return data
+        except OSError:
+            raise FileNotFoundError(f"Please check your path, \
+            {fileName} not found.")
+
+    def to_pickle(self, fileName=None):
+        try:
+            fileName = os.path.normpath(fileName)
+            with open(fileName, 'wb') as f:
+                pickle.dump(self, f, pickle.HIGHEST_PROTOCOL)
+        except OSError:
+            raise FileNotFoundError(f"Please check your path, \
+            {fileName} not found.")

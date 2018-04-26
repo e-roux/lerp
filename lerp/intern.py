@@ -98,9 +98,9 @@ def myPlot(func):
         # --------------------------------------------------------------------
         rc = kwargs.pop('rc') if 'rc' in kwargs else False
 
-        # if rc is False:
-        # plt.style.use('ggplot' if 'ggplot' in plt.style.available
-        # else 'default')
+        #        if rc is False:
+        #            plt.style.use('ggplot' if 'ggplot' in plt.style.available
+        #                          else 'default')
 
         xlim = kwargs.pop('xlim') if 'xlim' in kwargs else None
         ylim = kwargs.pop('ylim') if 'ylim' in kwargs else None

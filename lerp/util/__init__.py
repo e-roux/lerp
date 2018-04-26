@@ -108,50 +108,48 @@ class xlsx(object):
         Returns
         -------
         """
-        try:
+        #try:
             # Si named_range est donné en arguement, on récupère
             # le nom de l'onglet et le domaine via la méthode
             # get_named_range
-            if named_range is not None:
-                _rn = self.wb.get_named_range(named_range).value
-                ws, r = [_elt.replace("'", "") for _elt in _rn.split('!')]
+        if named_range is not None:
+            _rn = self.wb.get_named_range(named_range).value
+            ws, r = [_elt.replace("'", "") for _elt in _rn.split('!')]
 
-            ws = self.wb[ws]
-            if transpose is False:
-                res = pd.DataFrame([[ws[_c].value for _c in _r]
-                                   for _r in rows_from_range(r)])
+        ws = self.wb[ws]
+        res = pd.DataFrame([[_c.value for _c in _r]
+                           for _r in ws[r]])
+        if transpose:
+            res = res.T
+
+        if columns is not None:
+            header = False
+            res.columns = columns
+
+        if header is True:
+            columns = res.iloc[0]
+            res.drop(0, inplace=True)
+            res.columns = columns
+
+        if type(index) is int:
+            _index = res.iloc[:, index]
+            res.drop(res.columns[index], axis=1, inplace=True)
+            res.index = _index
+
+        if lerp is True:
+            if min(res.shape) == 1:
+                if res.shape[0] < res.shape[1]:
+                    res = res.T
+                mymesh = mesh2d(res.index, res.iloc[:, 0])
             else:
-                res = pd.DataFrame([[ws[_c].value for _c in _r]
-                                   for _r in rows_from_range(r)]).T
-
-            if columns is not None:
-                header = False
-                res.columns = columns
-
-            if header is True:
-                columns = res.iloc[0]
-                res.drop(0, inplace=True)
-                res.columns = columns
-
-            if type(index) is int:
-                _index = res.iloc[:, index]
-                res.drop(res.columns[index], axis=1, inplace=True)
-                res.index = _index
-
-            if lerp is True:
-                if min(res.shape) == 1:
-                    if res.shape[0] < res.shape[1]:
-                        res = res.T
-                    mymesh = mesh2d(res.index, res.iloc[:, 0])
-                else:
-                    mymesh = mesh3d()
-                    mymesh.from_pandas(res)
-                return mymesh
-            else:
-                return res
-        except:
+                mymesh = mesh3d()
+                mymesh.from_pandas(res)
+            return mymesh
+        else:
+            return res
+        #except:
             # Tests if the worksheet is present in the xlsx file
-            print("{} not in the workboot sheet list".format(ws))
+        #    print("{} not in the workboot sheet list".format(ws))
 
     def to_mesh3d(self):
         """Export to mesh3d."""
@@ -238,6 +236,7 @@ def pdfcrop(fileName):
         The pressure at altitude in bar
     """
     from os.path import normpath
+    import subprocess
 
     subprocess.run(["pdfcrop", normpath(fileName), normpath(fileName)])
 
@@ -250,7 +249,7 @@ def get_file_list(path=None, extension=None):
     from os.path import basename
 
     fileList = []
-    if isinstance(path, str) or isinstance(path, unicode):
+    if isinstance(path, str):  # or isinstance(path, unicode):
         path = [path]
 
     if "*" in extension:
