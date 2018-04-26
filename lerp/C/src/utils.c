@@ -8,7 +8,7 @@ Comment
 
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
 #include <numpy/arrayobject.h>
-#include "LERP_intern.h"
+#include "NumPyWrapper.h"
 
 #define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
 

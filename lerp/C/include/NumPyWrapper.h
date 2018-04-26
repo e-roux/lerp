@@ -1,6 +1,8 @@
 #ifndef INTERN_H
 #define INTERN_H
 #include <numpy/arrayobject.h>
+#include "Mesh.h"
+
 // #include <numpy/npy_math.h>
 
 // #include <Python.h>
@@ -28,8 +30,8 @@ binary_search_with_guess(const npy_double key, const npy_double *arr,
                          npy_intp len, npy_intp guess);
 
 
-PyObject *
-my_interp(PyObject *, PyObject *, PyObject *);
+// PyObject *
+// my_interp(PyObject *, PyObject *, PyObject *);
 
 
 PyArrayObject* get_it(PyObject *);

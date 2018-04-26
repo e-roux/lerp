@@ -23,7 +23,7 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API
 #include <numpy/arrayobject.h>
 
-#include "LERP_intern.h"
+#include "NumPyWrapper.h"
 #include "NDTable.h"
 #include "Mesh.h"
 
@@ -35,7 +35,9 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #define DEBUG 0
 
 
-NDTable_InterpMethod_t get_interp_method(char *method) {
+NDTable_InterpMethod_t
+get_interp_method(char *method)
+{
 
     // Set interpolation method, default to linear
     NDTable_InterpMethod_t interpmethod;
@@ -65,7 +67,9 @@ NDTable_InterpMethod_t get_interp_method(char *method) {
     return interpmethod;
 }
 
-NDTable_ExtrapMethod_t get_extrap_method(char *method) {
+NDTable_ExtrapMethod_t
+get_extrap_method(char *method)
+{
 
     // Set extrapolation method, default to hold
     NDTable_ExtrapMethod_t extrapmethod;
@@ -83,9 +87,8 @@ NDTable_ExtrapMethod_t get_extrap_method(char *method) {
     return extrapmethod;
 }
 
-static PyObject *interpolation(PyObject *NPY_UNUSED(self),
-                               PyObject *args,
-                               PyObject *kwdict) 
+static PyObject
+*interpolation(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict) 
 {
 
     /**************************************************
@@ -343,10 +346,10 @@ static PyObject *interpolation(PyObject *NPY_UNUSED(self),
 
 
 static PyMethodDef interpolation_methods[] = {
-    {"interpolation", (PyCFunction) interpolation, METH_VARARGS | METH_KEYWORDS,
-         "Interpolation."},
-    {"my_interp", (PyCFunction) my_interp, METH_VARARGS | METH_KEYWORDS,
-         "my_interp."},         
+    {"interpolation", (PyCFunction) interpolation,
+     METH_VARARGS | METH_KEYWORDS, "Interpolation."},
+    {"my_interp", (PyCFunction) my_interp,
+     METH_VARARGS | METH_KEYWORDS, "my_interp."},         
     {NULL, NULL, 0, NULL}   /* sentinel */
 };
 
@@ -358,7 +361,8 @@ static struct PyModuleDef interpolationmodule = {
     interpolation_methods
 };  
 
-PyMODINIT_FUNC PyInit_interpolation(void)
+PyMODINIT_FUNC
+PyInit_interpolation(void)
 {
     PyObject *mod = NULL;
     import_array();

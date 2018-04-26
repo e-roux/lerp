@@ -13,6 +13,8 @@ typedef struct {
 	npy_double  *data;			    	// Buffer object pointing to the start
 										// of the array’s data.
 	npy_double  *coords[NPY_MAXDIMS]; 	// array of pointers to the coords values
+	PyArrayObject  *array;			    	// Buffer object pointing to the start
+
 	// npy_intp    (*interpmethod)(npy_intp);		    // Function for interpolation
 } Mesh_t;
 

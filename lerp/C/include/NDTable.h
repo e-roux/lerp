@@ -69,7 +69,10 @@ extrap_method	:	NDTable_ExtrapMethod_t
 result			: 	npy_double
 					interpolated result
 */
-#define INTERP_PARAMETERS (const Mesh_h, const npy_double *, const npy_intp *, npy_intp *, npy_intp, NDTable_InterpMethod_t, NDTable_ExtrapMethod_t, npy_double *);
+#define INTERP_PARAMETERS (const Mesh_h table, const npy_double *weigths,\
+						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,\
+						   NDTable_InterpMethod_t interp_method,\
+						   NDTable_ExtrapMethod_t extrap_method, npy_double *result);
 
 /*! Interpolation methods */
 typedef enum {

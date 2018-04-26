@@ -30,6 +30,7 @@ for _ix, _x in enumerate(mymesh.x.values):
             #       1 + _iz + (_iy + _ix * len(mymesh.y)) * len(mymesh.z), "/", mymesh.data.size,
             #       "-", sys.getrefcount(mymesh), mymesh(_x, _y, _z),
             #       mymesh[_ix, _iy, _iz].values)
+            # print(sys.getrefcount(mymesh.data))
             mymesh(_x, _y, _z)
 
 

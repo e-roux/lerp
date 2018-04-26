@@ -31,6 +31,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <Python.h>
+#define NO_IMPORT_ARRAY
+#define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API
 #include "NDTable.h"
 #include <numpy/npy_math.h>
 
@@ -51,7 +53,7 @@ static const unsigned long __nan[2] = { 0xffffffff, 0x7fffffff };
 #define ISFINITE(x) isfinite(x)
 #endif
 
-#define DEBUG 2	
+#define DEBUG 2
 
 
 /**
@@ -81,6 +83,7 @@ Returns
 status code
 */
 
+
 npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 						   const npy_intp *subs, npy_intp *nsubs, npy_intp dim,
 	     				   NDTable_InterpMethod_t interp_method,
@@ -89,30 +92,23 @@ npy_intp NDT_eval_internal(const Mesh_h table, const npy_double *weigths,
 {
 	interp_fun func;
 
-
 	// check arguments
-	if (weigths == NULL || subs == NULL ||
-		nsubs == NULL ||  result == NULL ) {
+	if (weigths == NULL || subs == NULL || nsubs == NULL ||  result == NULL ) {
 		return -1;
 	}
 
-	#if DEBUG == 1
-	printf("Dans NDT_eval_internal, dim =: %li/%li\n", dim, table->ndim);
+	#if DEBUG == 2
+	printf("Dans NDT_eval_internal (1)), dim =: %li\n", dim);
 	#endif
 
+	// Return ndarray data at coords given by nsubs
 	if (dim >= table->ndim) {
-		npy_intp index = 0;
-		npy_intp k = 1;
-		for(npy_intp i = table->ndim-1; i >= 0; i--) {
-			index += nsubs[i] * k; 
-			k *= table->shape[i]; // TODO use pre-calculated offsets
-		}	
-		*result =  table->data[index];
+		*result = *(npy_double*) PyArray_GetPtr(table->array, (npy_intp*) nsubs);
 		return 0;
 	}
 
 	// find the right function:
-	if(table->shape[dim] < 2) {
+	if (table->shape[dim] < 2) {
 		func = interp_hold;
 	} else if (weigths[dim] < 0.0 || weigths[dim] > 1.0) {
 		// extrapolate
@@ -191,48 +187,56 @@ static npy_intp interp_linear(const Mesh_h table, const npy_double *weight,
 	nsubs[dim] = subs[dim];
 
 
-	#if DEBUG == 1
-	printf("Dans interp_linear, dim =: %li\n", dim);
+	#if DEBUG == 2
+	printf("Dans interp_linear (1)), dim =: %li\n", dim);
 	#endif
 
-	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1, 
+
+	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
 								 interp_method, extrap_method,
 								 &a)) != 0) {
-			#if DEBUG == 1
-			printf("Dans interp_linear (1)), dim =: %li\n", dim);
-			#endif
-			return err;
+		return err;
+	}
+
+	if (npy_isnan(a)) {
+			printf("Dans interp_linear (NaN)), dim =: %li, a=%f, subs=%li/%li\n",
+				   dim, a, subs[dim], table->shape[dim]);
 	}
 
 	// get the right value
 	nsubs[dim] = subs[dim] + 1;
 
+	#if DEBUG == 2
+	printf("Dans interp_linear (2)), dim =: %li\n", dim);
+	#endif
+
 	if ((err = NDT_eval_internal(table, weight, subs, nsubs, dim + 1,
 								 interp_method, extrap_method,
 								 &b)) != 0) {
-			#if DEBUG == 1
-			printf("Dans interp_linear (1)), dim =: %li\n", dim);
-			#endif
-			return err;
+		return err;
 	}
+
+	if (npy_isnan(b)) {
+			printf("Dans interp_linear (NaN)), dim =: %li, b=%f, subs=%li/%li\n",
+				   dim, b, subs[dim], table->shape[dim]);
+	}
+
 
 	// if any of the values is not finite return NAN
 	if (npy_isnan(a) || npy_isnan(b)) {
-			#if DEBUG == 2
-			printf("Dans interp_linear (NaN)), dim =: %li, a=%f, b=%f\n", dim, a, b);
-			#endif
+			printf("Dans interp_linear (NaN)), dim =: %li, a=%f, b=%f, subs=%li/%li\n",
+				   dim, a, b, subs[dim], table->shape[dim]);
 			*result = NAN;
 		return 0;
 	}
 
-	#if DEBUG == 1
-	printf("Dans interp_linear (Finish)), dim =: %li\n", dim);
-	#endif
 	// calculate the interpolated value
 	*result = (1 - weight[dim]) * a + weight[dim] * b;
 
 
-
+	#if DEBUG == 2
+	printf("Dans interp_linear (Finish)), dim =: %li, result= %lf\n", dim, *result);
+	#endif
 
 	return 0;
 }
@@ -529,6 +533,7 @@ static npy_intp extrap_hold(const Mesh_h table, const npy_double *weigths,
 {
 	npy_intp err;
 	nsubs[dim] = weigths[dim] < 0.0 ? subs[dim] : subs[dim] + 1;
+	printf("Dans extrap_hold (Finish)), dim =: %li, result= %lf\n", dim, *result);
 
 	if ((err = NDT_eval_internal(table, weigths, subs, nsubs, dim + 1,
 								 interp_method, extrap_method, result)) != 0) {

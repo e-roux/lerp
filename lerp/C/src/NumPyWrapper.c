@@ -23,7 +23,7 @@
 #define PY_ARRAY_UNIQUE_SYMBOL UTILS_ARRAY_API
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
 
-#include "LERP_intern.h"
+#include "NumPyWrapper.h"
 
 
 #define LIKELY_IN_CACHE_SIZE 8
@@ -124,3 +124,10 @@ PyArrayObject* get_it(PyObject *array) {
 
 }
 
+// PyObject *
+// interp_linear_np(const PyArrayObject *fp_array, const npy_double *weigths)
+// {
+    // for (Py_ssize_t j=0; j < output->ndim; j++) {
+        
+    // }
+// }

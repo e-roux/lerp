@@ -24,15 +24,11 @@ Reference count: http://edcjones.tripod.com/refcount.html
 #define NPY_NO_DEPRECATED_API NPY_1_13_API_VERSION
 #include <numpy/arrayobject.h>
 #include <numpy/npy_math.h>
-#include "LERP_intern.h"
+#include "NumPyWrapper.h"
 #include "NDTable.h"
+// #include "Mesh.h"
 
-
-// #define ARRAYD64(a) (PyArrayObject*) PyArray_FromAny(a, PyArray_DescrFromType(NPY_FLOAT64), 0, 0, 0, NULL)
 #define ARRAYD64(a) (PyArrayObject*) PyArray_ContiguousFromAny(a, NPY_DOUBLE, 0, 0)
-
-
-#define error_converting(x)  (((x) == -1) && PyErr_Occurred())
 
 #define DEBUG 0
 
@@ -43,90 +39,71 @@ my_interp(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
 
     PyObject *fp, *xp, *x;
     PyObject *left = NULL, *right = NULL;
-    PyArrayObject *afp = NULL, *axp = NULL, *ax = NULL, *af = NULL;
-    npy_intp i, lenx, lenxp;
+    PyArrayObject *fp_array = NULL, *xp_array = NULL, *x_array = NULL, *f_array = NULL;
+    npy_intp i, x_len, xp_len;
     npy_double lval, rval;
-    const npy_double *dy, *dx, *dz;
-    npy_double *dres, *slopes = NULL;
+    const npy_double *afp_data, *axp_data, *ax_data;
+    npy_double *af_data, *slopes = NULL;
 
     static char *kwlist[] = {"x", "xp", "fp", "left", "right", NULL};
 
     NPY_BEGIN_THREADS_DEF;
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwdict, "OOO|OO:interp", kwlist,
+    if (!PyArg_ParseTupleAndKeywords(args, kwdict, "OOO|OO:my_interp", kwlist,
                                      &x, &xp, &fp, &left, &right)) {
         return NULL;
     }
-    // PyObject_Print(fp, stdout, 0);
-    // printf("\n");
-
-    // printf("là\n");
 
 
-    afp = (PyArrayObject *)PyArray_ContiguousFromAny(fp, NPY_DOUBLE, 1, 1);
-    if (afp == NULL) {
+    fp_array = (PyArrayObject *)PyArray_ContiguousFromAny(fp, NPY_DOUBLE, 1, 1);
+    if (fp_array == NULL) {
         return NULL;
     }
-    axp = (PyArrayObject *)PyArray_ContiguousFromAny(xp, NPY_DOUBLE, 1, 1);
-    if (axp == NULL) {
+    xp_array = (PyArrayObject *)PyArray_ContiguousFromAny(xp, NPY_DOUBLE, 1, 1);
+    if (xp_array == NULL) {
         goto fail;
     }
-    ax = (PyArrayObject *)PyArray_ContiguousFromAny(x, NPY_DOUBLE, 0, 0);
-    if (ax == NULL) {
+    x_array = (PyArrayObject *)PyArray_ContiguousFromAny(x, NPY_DOUBLE, 0, 0);
+    if (x_array == NULL) {
         goto fail;
     }
-    lenxp = PyArray_SIZE(axp);
-    if (lenxp == 0) {
+    xp_len = PyArray_SIZE(xp_array);
+    if (xp_len == 0) {
         PyErr_SetString(PyExc_ValueError,
                 "array of sample points is empty");
         goto fail;
     }
-    if (PyArray_SIZE(afp) != lenxp) {
+    if (PyArray_SIZE(fp_array) != xp_len) {
         PyErr_SetString(PyExc_ValueError,
                 "fp and xp are not of the same length.");
         goto fail;
     }
 
-    af = (PyArrayObject *)PyArray_SimpleNew(PyArray_NDIM(ax),
-                                            PyArray_DIMS(ax), NPY_DOUBLE);
-    if (af == NULL) {
+    f_array = (PyArrayObject *)PyArray_SimpleNew(PyArray_NDIM(x_array),
+                                                 PyArray_DIMS(x_array), NPY_DOUBLE);
+    if (f_array == NULL) {
         goto fail;
     }
-    lenx = PyArray_SIZE(ax);
+    x_len = PyArray_SIZE(x_array);
 
-    dy = (const npy_double *)PyArray_DATA(afp);
-    dx = (const npy_double *)PyArray_DATA(axp);
-    dz = (const npy_double *)PyArray_DATA(ax);
-    dres = (npy_double *)PyArray_DATA(af);
-    /* Get left and right fill values. */
-    if ((left == NULL) || (left == Py_None)) {
-        lval = dy[0];
-    }
-    else {
-        lval = PyFloat_AsDouble(left);
-        if (error_converting(lval)) {
-            goto fail;
-        }
-    }
-    if ((right == NULL) || (right == Py_None)) {
-        rval = dy[lenxp - 1];
-    }
-    else {
-        rval = PyFloat_AsDouble(right);
-        if (error_converting(rval)) {
-            goto fail;
-        }
-    }
+    afp_data = (const npy_double *)PyArray_DATA(fp_array);
+    axp_data = (const npy_double *)PyArray_DATA(xp_array);
+    
+    ax_data = (const npy_double *)PyArray_DATA(x_array);
+    af_data = (npy_double *)PyArray_DATA(f_array);
+    
+    lval = afp_data[0];
+    rval = afp_data[xp_len - 1];
 
     /* binary_search_with_guess needs at least a 3 item long array */
-    if (lenxp == 1) {
-        const npy_double xp_val = dx[0];
-        const npy_double fp_val = dy[0];
+    if (xp_len == 1) {
+        const npy_double xp_val = axp_data[0];
+        const npy_double fp_val = afp_data[0];
 
-        NPY_BEGIN_THREADS_THRESHOLDED(lenx);
-        for (i = 0; i < lenx; ++i) {
-            const npy_double x_val = dz[i];
-            dres[i] = (x_val < xp_val) ? lval :
+        NPY_BEGIN_THREADS_THRESHOLDED(x_len);
+        for (i = 0; i < x_len; ++i) {
+            const npy_double x_val = ax_data[i];
+            af_data[i] = (x_val < xp_val) ? lval :
                                          ((x_val > xp_val) ? rval : fp_val);
         }
         NPY_END_THREADS;
@@ -135,8 +112,8 @@ my_interp(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
         npy_intp j = 0;
 
         /* only pre-calculate slopes if there are relatively few of them. */
-        if (lenxp <= lenx) {
-            slopes = PyArray_malloc((lenxp - 1) * sizeof(npy_double));
+        if (xp_len <= x_len) {
+            slopes = PyArray_malloc((xp_len - 1) * sizeof(npy_double));
             if (slopes == NULL) {
                 goto fail;
             }
@@ -145,49 +122,49 @@ my_interp(PyObject *NPY_UNUSED(self), PyObject *args, PyObject *kwdict)
         NPY_BEGIN_THREADS;
 
         if (slopes != NULL) {
-            for (i = 0; i < lenxp - 1; ++i) {
-                slopes[i] = (dy[i+1] - dy[i]) / (dx[i+1] - dx[i]);
+            for (i = 0; i < xp_len - 1; ++i) {
+                slopes[i] = (afp_data[i+1] - afp_data[i]) / (axp_data[i+1] - axp_data[i]);
             }
         }
 
-        for (i = 0; i < lenx; ++i) {
-            const npy_double x_val = dz[i];
+        for (i = 0; i < x_len; ++i) {
+            const npy_double x_val = ax_data[i];
 
             if (npy_isnan(x_val)) {
-                dres[i] = x_val;
+                af_data[i] = x_val;
                 continue;
             }
 
-            j = binary_search_with_guess(x_val, dx, lenxp, j);  
+            j = binary_search_with_guess(x_val, axp_data, xp_len, j);  
             if (j == -1) {
-                dres[i] = lval;
+                af_data[i] = lval;
             }
-            else if (j == lenxp) {
-                dres[i] = rval;
+            else if (j == xp_len) {
+                af_data[i] = rval;
             }
-            else if (j == lenxp - 1) {
-                dres[i] = dy[j];
+            else if (j == xp_len - 1) {
+                af_data[i] = afp_data[j];
             }
             else {
                 const npy_double slope = (slopes != NULL) ? slopes[j] :
-                                         (dy[j+1] - dy[j]) / (dx[j+1] - dx[j]);
-                dres[i] = slope*(x_val - dx[j]) + dy[j];
+                                         (afp_data[j+1] - afp_data[j]) / (axp_data[j+1] - axp_data[j]);
+                af_data[i] = slope*(x_val - axp_data[j]) + afp_data[j];
             }
         }
         NPY_END_THREADS;
     }
 
     PyArray_free(slopes);
-    Py_DECREF(afp);
-    Py_DECREF(axp);
-    Py_DECREF(ax);
-    return PyArray_Return(af);
+    Py_DECREF(fp_array);
+    Py_DECREF(xp_array);
+    Py_DECREF(x_array);
+    return PyArray_Return(f_array);
 
     fail:
-        Py_XDECREF(afp);
-        Py_XDECREF(axp);
-        Py_XDECREF(ax);
-        Py_XDECREF(af);
+        Py_XDECREF(fp_array);
+        Py_XDECREF(xp_array);
+        Py_XDECREF(x_array);
+        Py_XDECREF(f_array);
         return NULL;
 }
 
@@ -224,6 +201,7 @@ Mesh_h Mesh_FromXarray(PyObject *mesh){
    
     // printf("Refcount 1: %zi\n", data->ob_refcnt);
     PyArrayObject* array = ARRAYD64(data);
+    output->array = ARRAYD64(data);
     // printf("Refcount 2: %zi\n", data->ob_refcnt);
 
     // printf("Refcount ARRAY 1 : %zi\n", PyArray_REFCOUNT(array));
@@ -289,7 +267,7 @@ Mesh_h Mesh_FromXarray(PyObject *mesh){
 
     Py_DECREF(coords_list);    
     Py_DECREF(coords);    
-    // Py_DECREF(array);    
+    Py_DECREF(array);    
     // printf("Refcount ARRAY 2 : %zi\n", PyArray_REFCOUNT(array));
     // PyObject_Print(data, stdout, 0);
     Py_DECREF(data);
