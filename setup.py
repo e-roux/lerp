@@ -13,7 +13,7 @@ def read(fname):
 setup(
     name="lerp",
     author=" Emmanuel Roux",
-    version='0.1aN',
+    version='0.1.1',
     packages=find_packages(exclude=['build', 'contrib', 'docs', 'tests',
                                     'sample']),
     install_requires=['numpy', 'scipy', 'matplotlib', 'pandas'],
